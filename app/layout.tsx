@@ -1,6 +1,8 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import { ConvexClientProvider } from './ConvexClientProvider';
+import { Toaster } from 'react-hot-toast';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -21,9 +23,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <div id="root">
-          {children}
-        </div>
+        <ConvexClientProvider>
+          <div id="root">
+            {children}
+          </div>
+          <Toaster position="top-right" />
+        </ConvexClientProvider>
       </body>
     </html>
   );

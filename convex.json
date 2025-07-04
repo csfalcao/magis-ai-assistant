@@ -1,8 +1,8 @@
 {
-  "prodUrl": "",
-  "functions": "convex/",
-  "generateCommonJSApi": false,
   "node": {
-    "externalPackages": ["@anthropic-ai/sdk", "openai"]
+    "externalPackages": [
+      "@anthropic-ai/sdk",
+      "openai"
+    ]
   }
 }
