@@ -1,20 +1,23 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
+import { authTables } from "@convex-dev/auth/server";
 
 export default defineSchema({
+  // Convex Auth tables
+  ...authTables,
   // ==================== CORE ENTITIES ====================
   
   users: defineTable({
     // Authentication fields (from Convex Auth)
     email: v.string(),
-    name: v.string(),
+    name: v.optional(v.string()),
     avatar: v.optional(v.string()),
     
     // MAGIS-specific fields
     assistantName: v.optional(v.string()), // User can name their AI
     
-    // User preferences
-    preferences: v.object({
+    // User preferences - all optional with defaults set by functions
+    preferences: v.optional(v.object({
       // AI behavior
       defaultContext: v.string(), // 'work', 'personal', 'family'
       aiProvider: v.string(), // 'openai', 'claude'
@@ -49,13 +52,13 @@ export default defineSchema({
       theme: v.string(), // 'light', 'dark', 'system'
       language: v.string(), // 'en', 'pt', 'es', etc.
       timezone: v.string(), // 'America/New_York'
-    }),
+    })),
     
-    // Account metadata
-    createdAt: v.number(),
-    lastActiveAt: v.number(),
-    onboardingCompleted: v.boolean(),
-    subscriptionTier: v.string(), // 'free', 'pro', 'enterprise'
+    // Account metadata - make optional to work with Convex Auth
+    createdAt: v.optional(v.number()),
+    lastActiveAt: v.optional(v.number()),
+    onboardingCompleted: v.optional(v.boolean()),
+    subscriptionTier: v.optional(v.string()), // 'free', 'pro', 'enterprise'
   })
     .index('by_email', ['email'])
     .index('by_last_active', ['lastActiveAt']),

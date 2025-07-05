@@ -13,6 +13,7 @@ export default function AuthPage() {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
+    confirmPassword: "",
     name: "",
   });
 
@@ -20,10 +21,30 @@ export default function AuthPage() {
     e.preventDefault();
     setIsLoading(true);
 
+    // Validation for sign up
+    if (isSignUp) {
+      if (formData.password !== formData.confirmPassword) {
+        toast.error("Passwords don't match!");
+        setIsLoading(false);
+        return;
+      }
+      if (formData.password.length < 6) {
+        toast.error("Password must be at least 6 characters!");
+        setIsLoading(false);
+        return;
+      }
+      if (!formData.name.trim()) {
+        toast.error("Please enter your full name!");
+        setIsLoading(false);
+        return;
+      }
+    }
+
     try {
       if (isSignUp) {
         // Sign up flow
         await signIn("password", {
+          flow: "signUp",
           email: formData.email,
           password: formData.password,
           name: formData.name,
@@ -32,6 +53,7 @@ export default function AuthPage() {
       } else {
         // Sign in flow
         await signIn("password", {
+          flow: "signIn",
           email: formData.email,
           password: formData.password,
         });
@@ -39,25 +61,18 @@ export default function AuthPage() {
       }
       
       router.push("/chat");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Auth error:", error);
-      toast.error(isSignUp ? "Failed to create account" : "Failed to sign in");
+      const errorMessage = error?.message || error?.toString() || "Unknown error";
+      toast.error(isSignUp ? `Failed to create account: ${errorMessage}` : `Failed to sign in: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Google OAuth not configured yet
   const handleGoogleSignIn = async () => {
-    setIsLoading(true);
-    try {
-      await signIn("google");
-      router.push("/chat");
-    } catch (error) {
-      console.error("Google sign in error:", error);
-      toast.error("Failed to sign in with Google");
-    } finally {
-      setIsLoading(false);
-    }
+    toast.error("Google OAuth will be available in the next update!");
   };
 
   return (
@@ -122,9 +137,27 @@ export default function AuthPage() {
                 value={formData.password}
                 onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-magis-500 focus:ring-magis-500"
-                placeholder="Enter your password"
+                placeholder={isSignUp ? "Create a password (min 6 characters)" : "Enter your password"}
               />
             </div>
+
+            {isSignUp && (
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                  Confirm Password
+                </label>
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  required={isSignUp}
+                  value={formData.confirmPassword}
+                  onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-magis-500 focus:ring-magis-500"
+                  placeholder="Confirm your password"
+                />
+              </div>
+            )}
 
             <button
               type="submit"
@@ -146,11 +179,11 @@ export default function AuthPage() {
               </div>
             </div>
 
-            {/* Google Sign In */}
+            {/* Google Sign In - Coming Soon */}
             <button
               onClick={handleGoogleSignIn}
-              disabled={isLoading}
-              className="mt-3 w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={true}
+              className="mt-3 w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-gray-100 text-sm font-medium text-gray-400 cursor-not-allowed"
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                 <path
@@ -170,7 +203,7 @@ export default function AuthPage() {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              Sign in with Google
+              Google OAuth (Coming Soon)
             </button>
           </div>
 
@@ -178,7 +211,16 @@ export default function AuthPage() {
           <div className="mt-6 text-center">
             <button
               type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                // Clear form when switching
+                setFormData({
+                  email: "",
+                  password: "",
+                  confirmPassword: "",
+                  name: "",
+                });
+              }}
               className="text-sm text-magis-600 hover:text-magis-500"
             >
               {isSignUp ? "Already have an account? Sign in" : "Need an account? Sign up"}
