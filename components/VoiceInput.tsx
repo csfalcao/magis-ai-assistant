@@ -5,6 +5,60 @@ import { Mic, MicOff, Square, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 
+// Type declarations for Web Speech API
+interface SpeechRecognitionResultList {
+  readonly length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  readonly length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+  readonly isFinal: boolean;
+}
+
+interface SpeechRecognitionAlternative {
+  readonly transcript: string;
+  readonly confidence: number;
+}
+
+interface SpeechRecognitionEvent extends Event {
+  readonly resultIndex: number;
+  readonly results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  readonly error: string;
+  readonly message: string;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  maxAlternatives: number;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onstart: ((this: SpeechRecognition, ev: Event) => any) | null;
+  onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null;
+  onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => any) | null;
+  onend: ((this: SpeechRecognition, ev: Event) => any) | null;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: {
+      new (): SpeechRecognition;
+    };
+    webkitSpeechRecognition: {
+      new (): SpeechRecognition;
+    };
+  }
+}
+
 interface VoiceInputProps {
   onTranscript: (text: string) => void;
   onInterimTranscript?: (text: string) => void;
@@ -58,22 +112,13 @@ export function VoiceInput({
           // Auto-detect browser language or use Portuguese as default for Brazil
           const browserLang = navigator.language || 'pt-BR';
           recognition.lang = browserLang;
-          console.log('Auto-detected language:', browserLang);
         } else {
           recognition.lang = language;
         }
         
-        // Log offline capabilities
-        console.log('Speech Recognition Info:', {
-          serviceURI: (recognition as any).serviceURI || 'Default (likely online)',
-          continuous: recognition.continuous,
-          interimResults: recognition.interimResults,
-          lang: recognition.lang,
-          userAgent: navigator.userAgent
-        });
+        // Configure recognition settings
         
         recognition.onstart = () => {
-          console.log('Voice recognition started');
           setIsListening(true);
           setIsProcessing(false);
           onVoiceStart?.();
@@ -98,19 +143,15 @@ export function VoiceInput({
             setTranscript(newTranscript);
             setInterimTranscript('');
             
-            console.log('🎤 Final transcript received:', newTranscript);
-            
             // Send both final and interim to parent for input field update
             onTranscript(newTranscript);
             
             // Auto-stop and trigger auto-send after getting final result
             setTimeout(() => {
-              console.log('🎤 Auto-stopping after final transcript...');
               stopListening();
               
               // Trigger auto-send immediately after stopping
               if (autoSend && newTranscript.trim()) {
-                console.log('🎤 Triggering auto-send from onresult...');
                 setTimeout(() => {
                   onVoiceEnd?.();
                 }, 100);
@@ -127,8 +168,6 @@ export function VoiceInput({
         };
         
         recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-          console.error('Speech recognition error:', event.error);
-          
           if (event.error === 'not-allowed') {
             setPermissionGranted(false);
             toast.error('Microphone permission denied. Please enable microphone access.');
@@ -144,7 +183,6 @@ export function VoiceInput({
         };
         
         recognition.onend = () => {
-          console.log('Voice recognition ended');
           setIsListening(false);
           setIsProcessing(false);
           
@@ -157,18 +195,14 @@ export function VoiceInput({
           const finalText = transcript.trim();
           const now = Date.now();
           
-          console.log('Safari onend - finalText:', finalText, 'autoSend:', autoSend, 'lastEndTime:', lastEndTimeRef.current);
-          
           // Debounce: prevent multiple calls within 2 seconds
           if (now - lastEndTimeRef.current < 2000) {
-            console.log('🚫 Debounced: ignoring duplicate onend call');
             return;
           }
           
           lastEndTimeRef.current = now;
           
           if (finalText && autoSend) {
-            console.log('🎤 onend: Auto-sending transcript:', finalText);
             onTranscript(finalText);
             
             // Clear the transcript after sending
@@ -176,17 +210,14 @@ export function VoiceInput({
             setInterimTranscript('');
             
             // Trigger auto-send by calling onVoiceEnd
-            console.log('🎤 onend: Calling onVoiceEnd for auto-send...');
             onVoiceEnd?.();
           } else if (finalText) {
             // Just update input field without auto-sending
-            console.log('🎤 onend: Updating input without auto-send');
             onTranscript(finalText);
             setTranscript('');
             setInterimTranscript('');
             onVoiceEnd?.();
           } else {
-            console.log('🎤 onend: No final text to process');
             // Call onVoiceEnd anyway to clean up state
             onVoiceEnd?.();
           }
@@ -194,7 +225,6 @@ export function VoiceInput({
         
         recognitionRef.current = recognition;
       } else {
-        console.log('Speech recognition not supported');
         setIsSupported(false);
       }
     }
@@ -237,14 +267,11 @@ export function VoiceInput({
   };
 
   const stopListening = () => {
-    console.log('stopListening called, isListening:', isListening);
-    
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
-        console.log('Recognition stop called');
       } catch (error) {
-        console.error('Error stopping recognition:', error);
+        // Silent error - recognition already stopped
       }
     }
     

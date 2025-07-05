@@ -53,11 +53,7 @@ export function ChatInterface() {
       context: currentContext,
       aiProvider: aiProvider,
     },
-    onMessage: async (message) => {
-      // User messages are now saved manually in handleSendMessage
-      // Only log for debugging
-      console.log('onMessage called with:', message);
-    },
+    // onMessage removed - not needed in current AI SDK version
     onFinish: async (message) => {
       // Save AI response to Convex after streaming is complete
       if (currentConversationId) {
@@ -87,11 +83,7 @@ export function ChatInterface() {
     currentConversationId ? { conversationId: currentConversationId } : "skip"
   );
 
-  // Debug logging
-  useEffect(() => {
-    console.log('Convex messages:', messages);
-    console.log('AI messages:', aiMessages);
-  }, [messages, aiMessages]);
+  // Auto-scroll to bottom when new messages arrive
 
   // Mutations
   const createConversation = useMutation(api.conversations.create);
@@ -143,7 +135,7 @@ export function ChatInterface() {
       });
       
       // Then let useChat handle the AI submission
-      handleSubmit(e);
+      handleSubmit(e as React.FormEvent<HTMLFormElement>);
       toast.success("Message sent!");
     } catch (error) {
       console.error("Failed to send message:", error);
@@ -152,7 +144,6 @@ export function ChatInterface() {
   };
 
   const handleVoiceTranscript = (transcript: string) => {
-    console.log('📝 handleVoiceTranscript called with:', transcript);
     // Update the input field with the transcript
     handleInputChange({ target: { value: transcript } } as React.ChangeEvent<HTMLInputElement>);
     setLastInputUpdate(Date.now());
@@ -163,9 +154,7 @@ export function ChatInterface() {
     }
     
     autoSendTimeoutRef.current = setTimeout(() => {
-      console.log('⏰ Fallback auto-send timeout triggered');
       if (input.trim() && !isAutoSending) {
-        console.log('⏰ Executing fallback auto-send...');
         handleVoiceEnd();
       }
     }, 3000); // 3 second fallback
@@ -186,29 +175,22 @@ export function ChatInterface() {
     
     // Prevent multiple simultaneous auto-sends
     if (isAutoSending) {
-      console.log('🚫 Auto-send already in progress, skipping');
       return;
     }
     
-    console.log('🎤 handleVoiceEnd triggered');
     setIsAutoSending(true);
     
     try {
       // Single attempt with reasonable delay
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      console.log('🎤 Checking input value:', input, 'conversationId:', currentConversationId);
-      
       if (input.trim() && currentConversationId) {
-        console.log('✅ Auto-sending voice message...');
-        
         const userMessage = input.trim();
         
         // Clear input FIRST to prevent re-processing
         handleInputChange({ target: { value: '' } } as React.ChangeEvent<HTMLInputElement>);
         
         // Save user message to Convex
-        console.log('💾 Saving to Convex...');
         await addMessage({
           conversationId: currentConversationId,
           content: userMessage,
@@ -217,12 +199,8 @@ export function ChatInterface() {
             inputMethod: "voice",
           },
         });
-        console.log('✅ Saved to Convex');
         
         // Trigger AI response using useChat directly
-        console.log('📤 Triggering AI response...');
-        
-        // Create proper event for useChat
         const mockEvent = {
           preventDefault: () => {},
           currentTarget: {
@@ -235,14 +213,9 @@ export function ChatInterface() {
         // Call useChat handleSubmit
         handleSubmit(mockEvent);
         
-        console.log('✅ Voice message auto-sent successfully!');
         toast.success("Voice message sent!");
-        
-      } else {
-        console.log('⏭️ No input or no conversation to send');
       }
     } catch (error) {
-      console.error('❌ Auto-send failed:', error);
       toast.error('Failed to send voice message');
     } finally {
       // Always reset the flag
@@ -448,7 +421,6 @@ export function ChatInterface() {
                   
                   // Don't show streaming bubble if message is already in Convex
                   if (isDuplicate) {
-                    console.log('🚫 Streaming message already exists in Convex, hiding bubble');
                     return null;
                   }
                   
