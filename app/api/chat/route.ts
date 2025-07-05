@@ -1,29 +1,31 @@
-import { openai } from '@ai-sdk/openai';
-import { anthropic } from '@ai-sdk/anthropic';
-import { streamText } from 'ai';
-import { fetchMutation, fetchQuery } from 'convex/nextjs';
-import { api } from '../../../convex/_generated/api';
-import { auth } from '../../../convex/auth';
+import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
+import { OpenAIStream, StreamingTextResponse } from 'ai';
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
 
 export async function POST(req: Request) {
   try {
-    const { messages, conversationId, context = 'personal', aiProvider = 'openai' } = await req.json();
+    console.log('Chat API called');
+    const body = await req.json();
+    console.log('Request body:', body);
+    
+    const { messages, context = 'personal', aiProvider = 'openai' } = body;
 
-    // Get authenticated user
-    const convexAuthToken = req.headers.get('authorization')?.replace('Bearer ', '');
-    if (!convexAuthToken) {
-      return new Response('Unauthorized', { status: 401 });
+    if (!messages || !Array.isArray(messages)) {
+      console.log('Invalid messages format:', messages);
+      return new Response('Invalid messages format', { status: 400 });
     }
 
-    // Get user from Convex Auth
-    const user = await fetchQuery(api.users.getCurrentUser, {}, { token: convexAuthToken });
-    if (!user) {
-      return new Response('Unauthorized', { status: 401 });
-    }
-
-    // Select AI provider based on user preference or parameter
-    const provider = aiProvider === 'claude' ? anthropic : openai;
-    const model = aiProvider === 'claude' ? 'claude-3-sonnet-20240229' : 'gpt-4-turbo-preview';
+    console.log('OpenAI API Key present:', !!process.env.OPENAI_API_KEY);
+    console.log('Anthropic API Key present:', !!process.env.ANTHROPIC_API_KEY);
+    console.log('Using AI provider:', aiProvider);
 
     // Create system prompt based on context
     const systemPrompts = {
@@ -40,81 +42,66 @@ export async function POST(req: Request) {
 
     const systemPrompt = systemPrompts[context as keyof typeof systemPrompts] || systemPrompts.personal;
 
-    // Prepare conversation history for AI
-    const conversationMessages = messages.map((msg: any) => ({
-      role: msg.role,
-      content: msg.content,
-    }));
+    // Prepare messages for OpenAI API
+    const apiMessages = [
+      { role: 'system', content: systemPrompt },
+      ...messages
+    ];
 
-    // Stream response from AI
-    const result = await streamText({
-      model: provider(model),
-      system: systemPrompt,
-      messages: conversationMessages,
-      temperature: 0.7,
-      maxTokens: 1000,
-    });
+    console.log(`Calling ${aiProvider} with messages:`, apiMessages);
 
-    // Save user message to Convex
-    await fetchMutation(
-      api.conversations.sendMessage,
-      {
-        conversationId,
-        content: messages[messages.length - 1].content,
-        role: 'user',
-        metadata: {
-          inputMethod: 'text',
-          processingTime: Date.now(),
+    if (aiProvider === 'claude') {
+      // Call Claude API
+      const response = await anthropic.messages.create({
+        model: 'claude-3-sonnet-20240229',
+        max_tokens: 1000,
+        temperature: 0.7,
+        system: systemPrompt,
+        messages: messages.map((msg: any) => ({
+          role: msg.role,
+          content: msg.content,
+        })),
+        stream: true,
+      });
+
+      console.log('Claude response received, creating stream');
+      
+      // Convert Claude stream to text stream
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of response) {
+              if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+                controller.enqueue(new TextEncoder().encode(chunk.delta.text));
+              }
+            }
+          } catch (error) {
+            console.error('Claude streaming error:', error);
+          } finally {
+            controller.close();
+          }
         },
-      },
-      { token: convexAuthToken }
-    );
+      });
+      
+      return new StreamingTextResponse(stream);
+    } else {
+      // Call OpenAI API (default)
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4-turbo-preview',
+        messages: apiMessages as any,
+        stream: true,
+        temperature: 0.7,
+        max_tokens: 1000,
+      });
 
-    // Create a transform stream to save AI response
-    const stream = new ReadableStream({
-      async start(controller) {
-        let fullResponse = '';
-        
-        for await (const delta of result.textStream) {
-          fullResponse += delta;
-          controller.enqueue(new TextEncoder().encode(delta));
-        }
-
-        // Save AI response to Convex
-        try {
-          await fetchMutation(
-            api.conversations.sendMessage,
-            {
-              conversationId,
-              content: fullResponse,
-              role: 'assistant',
-              metadata: {
-                provider: aiProvider,
-                model,
-                usage: result.usage ? {
-                  promptTokens: await result.usage.then(u => u.promptTokens),
-                  completionTokens: await result.usage.then(u => u.completionTokens),
-                  totalTokens: await result.usage.then(u => u.totalTokens),
-                } : undefined,
-                processingTime: Date.now(),
-              },
-            },
-            { token: convexAuthToken }
-          );
-        } catch (error) {
-          console.error('Failed to save AI response:', error);
-        }
-
-        controller.close();
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Transfer-Encoding': 'chunked',
-      },
-    });
+      console.log('OpenAI response received, creating stream');
+      
+      // Convert the response into a friendly text-stream
+      const stream = OpenAIStream(response);
+      
+      // Respond with the stream
+      return new StreamingTextResponse(stream);
+    }
 
   } catch (error) {
     console.error('Chat API error:', error);
