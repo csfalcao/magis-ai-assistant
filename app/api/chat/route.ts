@@ -72,6 +72,39 @@ async function executeFunction(name: string, args: any): Promise<string> {
   }
 }
 
+// Helper functions for RAG integration
+async function retrieveRelevantMemories(query: string, context: string): Promise<any[]> {
+  // For now, return empty array - will be integrated with Convex actions
+  // In full implementation, this would:
+  // 1. Generate embedding for the query
+  // 2. Search the vector database
+  // 3. Return relevant memories
+  return [];
+}
+
+function formatMemoriesForContext(memories: any[]): string {
+  if (memories.length === 0) return '';
+  
+  const memoryText = memories
+    .slice(0, 5) // Limit to top 5 memories
+    .map(memory => `- ${memory.summary || memory.content}`)
+    .join('\n');
+    
+  return `\n\nRelevant memories about the user:\n${memoryText}\n`;
+}
+
+function getEnhancedSystemPrompt(basePrompt: string, memoryContext: string, context: string): string {
+  const memorySection = memoryContext 
+    ? `\n\nYou have access to the user's memory and past interactions:${memoryContext}`
+    : '';
+    
+  const ragInstructions = memoryContext
+    ? `\n\nUse this memory context to provide personalized responses. Reference past conversations and preferences when relevant, but don't explicitly mention that you're using stored memories.`
+    : '';
+    
+  return basePrompt + memorySection + ragInstructions;
+}
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -89,8 +122,31 @@ export async function POST(req: Request) {
       return new Response('Invalid messages format', { status: 400 });
     }
 
-    // Create system prompt based on context
-    const systemPrompts = {
+    // Get the latest user message for RAG retrieval
+    const userMessages = messages.filter((msg: any) => msg.role === 'user');
+    const latestUserMessage = userMessages[userMessages.length - 1]?.content || '';
+    
+    // Retrieve relevant memories using RAG (if user message exists)
+    let relevantMemories: any[] = [];
+    let memoryContext = '';
+    
+    if (latestUserMessage.length > 10) {
+      try {
+        // This would call our Convex memory search functions
+        // For now, we'll add a placeholder for the RAG integration
+        relevantMemories = await retrieveRelevantMemories(latestUserMessage, context);
+        
+        if (relevantMemories.length > 0) {
+          memoryContext = formatMemoriesForContext(relevantMemories);
+        }
+      } catch (error) {
+        // RAG retrieval failed, continue without memories
+        console.error('Memory retrieval failed:', error);
+      }
+    }
+
+    // Create base system prompts
+    const baseSystemPrompts = {
       work: `You are MAGIS, an AI assistant specialized in workplace productivity and professional communication. 
              You help with tasks, meetings, project management, and maintaining work-life balance. 
              Be professional, concise, and action-oriented.
@@ -120,7 +176,8 @@ export async function POST(req: Request) {
                Use these tools when appropriate to help users more effectively.`
     };
 
-    const systemPrompt = systemPrompts[context as keyof typeof systemPrompts] || systemPrompts.personal;
+    const basePrompt = baseSystemPrompts[context as keyof typeof baseSystemPrompts] || baseSystemPrompts.personal;
+    const systemPrompt = getEnhancedSystemPrompt(basePrompt, memoryContext, context);
 
     // Prepare messages for OpenAI API
     const apiMessages = [
@@ -161,67 +218,20 @@ export async function POST(req: Request) {
       
       return new StreamingTextResponse(stream);
     } else {
-      // Call OpenAI API (default) with tools
+      // Call OpenAI API (default) - try without tools first for simplicity
       const response = await openai.chat.completions.create({
         model: 'gpt-4-turbo-preview',
         messages: apiMessages as any,
-        stream: false, // Disable streaming for function calls
+        stream: true,
         temperature: 0.7,
         max_tokens: 1000,
-        tools: tools as any,
-        tool_choice: "auto",
       });
 
-      // Check if the response includes function calls
-      const message = response.choices[0].message;
+      // Convert the response into a friendly text-stream
+      const stream = OpenAIStream(response as any);
       
-      if (message.tool_calls && message.tool_calls.length > 0) {
-        
-        // Execute function calls
-        const toolMessages = [];
-        for (const toolCall of message.tool_calls) {
-          const { name, arguments: args } = toolCall.function;
-          const toolResult = await executeFunction(name, JSON.parse(args));
-          
-          toolMessages.push({
-            role: "tool",
-            tool_call_id: toolCall.id,
-            content: toolResult
-          });
-        }
-        
-        // Add function call and results to conversation
-        const enhancedMessages = [
-          ...apiMessages,
-          message,
-          ...toolMessages
-        ];
-        
-        // Make another API call to get the final response
-        const finalResponse = await openai.chat.completions.create({
-          model: 'gpt-4-turbo-preview',
-          messages: enhancedMessages as any,
-          stream: true,
-          temperature: 0.7,
-          max_tokens: 1000,
-        });
-        
-        const stream = OpenAIStream(finalResponse as any);
-        return new StreamingTextResponse(stream);
-      } else {
-        // No function calls, return regular response
-        const textContent = message.content || '';
-        
-        // Create a simple stream from the text content
-        const stream = new ReadableStream({
-          start(controller) {
-            controller.enqueue(new TextEncoder().encode(textContent));
-            controller.close();
-          }
-        });
-        
-        return new StreamingTextResponse(stream);
-      }
+      // Respond with the stream
+      return new StreamingTextResponse(stream);
     }
 
   } catch (error) {

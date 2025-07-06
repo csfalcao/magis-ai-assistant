@@ -15,7 +15,11 @@ import type {
 } from "convex/server";
 import type * as auth from "../auth.js";
 import type * as conversations from "../conversations.js";
+import type * as embeddings from "../embeddings.js";
 import type * as http from "../http.js";
+import type * as memory from "../memory.js";
+import type * as memoryConnections from "../memoryConnections.js";
+import type * as memoryPipeline from "../memoryPipeline.js";
 import type * as users from "../users.js";
 
 /**
@@ -29,7 +33,11 @@ import type * as users from "../users.js";
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   conversations: typeof conversations;
+  embeddings: typeof embeddings;
   http: typeof http;
+  memory: typeof memory;
+  memoryConnections: typeof memoryConnections;
+  memoryPipeline: typeof memoryPipeline;
   users: typeof users;
 }>;
 export declare const api: FilterApi<

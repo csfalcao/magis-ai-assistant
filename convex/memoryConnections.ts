@@ -1,0 +1,184 @@
+import { mutation, query, action } from './_generated/server';
+import { v } from 'convex/values';
+
+// Simplified memory connections for Day 3 implementation
+// Will be expanded with full cross-context linking in future iterations
+
+// Get a specific memory by ID
+export const getMemoryById = query({
+  args: {
+    memoryId: v.id('memories'),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error('Not authenticated');
+    }
+
+    const memory = await ctx.db.get(args.memoryId);
+    if (!memory) {
+      return null;
+    }
+
+    // Verify ownership
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_email', (q) => q.eq('email', identity.email!))
+      .first();
+
+    if (!user || memory.userId !== user._id) {
+      throw new Error('Not authorized');
+    }
+
+    return memory;
+  },
+});
+
+// Check if connection exists between two memories
+export const getConnection = query({
+  args: {
+    fromMemoryId: v.id('memories'),
+    toMemoryId: v.id('memories'),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error('Not authenticated');
+    }
+
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_email', (q) => q.eq('email', identity.email!))
+      .first();
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return await ctx.db
+      .query('memoryConnections')
+      .withIndex('by_from_memory', (q) => q.eq('fromMemoryId', args.fromMemoryId))
+      .filter((q) => 
+        q.and(
+          q.eq(q.field('toMemoryId'), args.toMemoryId),
+          q.eq(q.field('userId'), user._id)
+        )
+      )
+      .first();
+  },
+});
+
+// Create a connection between memories
+export const createConnection = mutation({
+  args: {
+    fromMemoryId: v.id('memories'),
+    toMemoryId: v.id('memories'),
+    connectionType: v.string(),
+    strength: v.number(),
+    confidence: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error('Not authenticated');
+    }
+
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_email', (q) => q.eq('email', identity.email!))
+      .first();
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return await ctx.db.insert('memoryConnections', {
+      userId: user._id,
+      fromMemoryId: args.fromMemoryId,
+      toMemoryId: args.toMemoryId,
+      connectionType: args.connectionType,
+      strength: Math.max(0, Math.min(1, args.strength)),
+      isAutomatic: true,
+      confidence: args.confidence || 0.8,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+// Find memories that span across contexts (simplified)
+export const findCrossContextConnections = query({
+  args: {
+    userId: v.optional(v.id('users')),
+    entity: v.optional(v.string()), // Find memories mentioning a specific entity across contexts
+    keyword: v.optional(v.string()), // Find memories with specific keywords across contexts
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error('Not authenticated');
+    }
+
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_email', (q) => q.eq('email', identity.email!))
+      .first();
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const userId = args.userId || user._id;
+
+    // Get all memories for the user
+    const allMemories = await ctx.db
+      .query('memories')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .filter((q) => q.eq(q.field('isActive'), true))
+      .collect();
+
+    const crossContextGroups: { [key: string]: any[] } = {};
+
+    // Group memories by shared entities or keywords
+    for (const memory of allMemories) {
+      const searchTerms = [
+        ...(memory.entities || []),
+        ...(memory.keywords || []),
+      ];
+
+      if (args.entity) {
+        searchTerms.push(args.entity);
+      }
+
+      if (args.keyword) {
+        searchTerms.push(args.keyword);
+      }
+
+      for (const term of searchTerms) {
+        const normalizedTerm = term.toLowerCase();
+        
+        if (!crossContextGroups[normalizedTerm]) {
+          crossContextGroups[normalizedTerm] = [];
+        }
+        
+        crossContextGroups[normalizedTerm].push(memory);
+      }
+    }
+
+    // Filter groups that span multiple contexts
+    const spanningGroups = Object.entries(crossContextGroups)
+      .filter(([term, memories]) => {
+        const contexts = new Set(memories.map(m => m.context));
+        return contexts.size > 1 && memories.length > 1;
+      })
+      .map(([term, memories]) => ({
+        term,
+        memories,
+        contexts: Array.from(new Set(memories.map(m => m.context))),
+        totalMemories: memories.length,
+      }));
+
+    return spanningGroups
+      .sort((a, b) => b.totalMemories - a.totalMemories)
+      .slice(0, 10); // Top 10 cross-context connections
+  },
+});
