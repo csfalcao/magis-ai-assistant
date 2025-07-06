@@ -16,6 +16,216 @@ export default defineSchema({
     // MAGIS-specific fields
     assistantName: v.optional(v.string()), // User can name their AI
     
+    // ==================== STRUCTURED PROFILE SYSTEM ====================
+    
+    // Personal Information
+    personalInfo: v.optional(v.object({
+      firstName: v.optional(v.string()),
+      lastName: v.optional(v.string()),
+      nickname: v.optional(v.string()),
+      dateOfBirth: v.optional(v.number()), // timestamp
+      location: v.optional(v.object({
+        city: v.optional(v.string()),
+        state: v.optional(v.string()),
+        country: v.optional(v.string()),
+        timezone: v.optional(v.string()),
+      })),
+      contactInfo: v.optional(v.object({
+        phone: v.optional(v.string()),
+        address: v.optional(v.string()),
+        emergencyContact: v.optional(v.object({
+          name: v.string(),
+          phone: v.string(),
+          relationship: v.string(),
+        })),
+      })),
+      healthInfo: v.optional(v.object({
+        allergies: v.optional(v.array(v.string())),
+        medications: v.optional(v.array(v.string())),
+        medicalConditions: v.optional(v.array(v.string())),
+        preferredPharmacy: v.optional(v.string()),
+        insuranceProvider: v.optional(v.string()),
+      })),
+    })),
+    
+    // Work Context Information
+    workInfo: v.optional(v.object({
+      employment: v.optional(v.object({
+        status: v.optional(v.string()), // 'employed', 'self_employed', 'entrepreneur', 'student', 'retired', 'unemployed'
+        type: v.optional(v.string()), // 'full_time', 'part_time', 'contract', 'freelance'
+        company: v.optional(v.string()),
+        position: v.optional(v.string()),
+        department: v.optional(v.string()),
+        startDate: v.optional(v.number()),
+        industry: v.optional(v.string()),
+      })),
+      workSchedule: v.optional(v.object({
+        regularHours: v.optional(v.object({
+          monday: v.optional(v.object({ start: v.string(), end: v.string() })),
+          tuesday: v.optional(v.object({ start: v.string(), end: v.string() })),
+          wednesday: v.optional(v.object({ start: v.string(), end: v.string() })),
+          thursday: v.optional(v.object({ start: v.string(), end: v.string() })),
+          friday: v.optional(v.object({ start: v.string(), end: v.string() })),
+          saturday: v.optional(v.object({ start: v.string(), end: v.string() })),
+          sunday: v.optional(v.object({ start: v.string(), end: v.string() })),
+        })),
+        flexibleSchedule: v.optional(v.boolean()),
+        remoteWork: v.optional(v.string()), // 'always', 'hybrid', 'never'
+        timeOffBalance: v.optional(v.number()),
+      })),
+      workLocation: v.optional(v.object({
+        office: v.optional(v.string()),
+        remoteAddress: v.optional(v.string()),
+        commute: v.optional(v.object({
+          method: v.optional(v.string()), // 'car', 'public_transport', 'walk', 'bike'
+          duration: v.optional(v.number()), // minutes
+        })),
+      })),
+      workContacts: v.optional(v.array(v.object({
+        name: v.string(),
+        role: v.string(),
+        relationship: v.string(), // 'manager', 'colleague', 'direct_report', 'client'
+        email: v.optional(v.string()),
+        phone: v.optional(v.string()),
+      }))),
+    })),
+    
+    // Family Context Information
+    familyInfo: v.optional(v.object({
+      relationshipStatus: v.optional(v.string()), // 'single', 'dating', 'married', 'divorced', 'widowed'
+      spouse: v.optional(v.object({
+        name: v.string(),
+        nickname: v.optional(v.string()),
+        dateOfBirth: v.optional(v.number()),
+        occupation: v.optional(v.string()),
+        workSchedule: v.optional(v.string()),
+        phone: v.optional(v.string()),
+        preferences: v.optional(v.array(v.string())),
+      })),
+      children: v.optional(v.array(v.object({
+        name: v.string(),
+        nickname: v.optional(v.string()),
+        dateOfBirth: v.optional(v.number()),
+        grade: v.optional(v.string()),
+        school: v.optional(v.string()),
+        activities: v.optional(v.array(v.string())),
+        allergies: v.optional(v.array(v.string())),
+        preferences: v.optional(v.array(v.string())),
+        medicalInfo: v.optional(v.object({
+          pediatrician: v.optional(v.string()),
+          allergies: v.optional(v.array(v.string())),
+          medications: v.optional(v.array(v.string())),
+        })),
+      }))),
+      pets: v.optional(v.array(v.object({
+        name: v.string(),
+        type: v.string(), // 'dog', 'cat', 'bird', 'fish', 'other'
+        breed: v.optional(v.string()),
+        dateOfBirth: v.optional(v.number()),
+        veterinarian: v.optional(v.string()),
+        medications: v.optional(v.array(v.string())),
+        preferences: v.optional(v.array(v.string())),
+      }))),
+      extendedFamily: v.optional(v.array(v.object({
+        name: v.string(),
+        relationship: v.string(), // 'parent', 'sibling', 'grandparent', 'aunt', 'uncle', 'cousin'
+        phone: v.optional(v.string()),
+        location: v.optional(v.string()),
+        birthday: v.optional(v.number()),
+        notes: v.optional(v.string()),
+      }))),
+      household: v.optional(v.object({
+        address: v.optional(v.string()),
+        type: v.optional(v.string()), // 'house', 'apartment', 'condo'
+        residents: v.optional(v.array(v.string())),
+        emergencyContacts: v.optional(v.array(v.object({
+          name: v.string(),
+          phone: v.string(),
+          relationship: v.string(),
+        }))),
+      })),
+    })),
+    
+    // Personal Preferences and Lifestyle
+    personalPreferences: v.optional(v.object({
+      lifestyle: v.optional(v.object({
+        diet: v.optional(v.string()), // 'omnivore', 'vegetarian', 'vegan', 'keto', 'mediterranean'
+        allergies: v.optional(v.array(v.string())),
+        hobbies: v.optional(v.array(v.string())),
+        interests: v.optional(v.array(v.string())),
+        fitnessGoals: v.optional(v.array(v.string())),
+        sleepSchedule: v.optional(v.object({
+          bedtime: v.optional(v.string()),
+          wakeTime: v.optional(v.string()),
+          sleepDuration: v.optional(v.number()), // hours
+        })),
+      })),
+      communication: v.optional(v.object({
+        preferredStyle: v.optional(v.string()), // 'formal', 'casual', 'friendly', 'professional'
+        responseLength: v.optional(v.string()), // 'brief', 'moderate', 'detailed'
+        humor: v.optional(v.boolean()),
+        directness: v.optional(v.string()), // 'very_direct', 'moderately_direct', 'gentle'
+      })),
+      scheduling: v.optional(v.object({
+        preferredMeetingTimes: v.optional(v.array(v.string())),
+        bufferTime: v.optional(v.number()), // minutes between meetings
+        maxDailyMeetings: v.optional(v.number()),
+        preferredDays: v.optional(v.array(v.string())),
+        blockedTimes: v.optional(v.array(v.object({
+          day: v.string(),
+          startTime: v.string(),
+          endTime: v.string(),
+          reason: v.string(),
+        }))),
+      })),
+    })),
+    
+    // Service Providers and Important Contacts
+    serviceProviders: v.optional(v.object({
+      healthcare: v.optional(v.array(v.object({
+        type: v.string(), // 'primary_care', 'dentist', 'ophthalmologist', 'dermatologist', 'specialist'
+        name: v.string(),
+        practice: v.optional(v.string()),
+        phone: v.optional(v.string()),
+        address: v.optional(v.string()),
+        notes: v.optional(v.string()),
+        lastVisit: v.optional(v.number()),
+        nextAppointment: v.optional(v.number()),
+      }))),
+      automotive: v.optional(v.array(v.object({
+        type: v.string(), // 'mechanic', 'dealership', 'insurance'
+        name: v.string(),
+        phone: v.optional(v.string()),
+        address: v.optional(v.string()),
+        vehicles: v.optional(v.array(v.string())), // which vehicles they service
+      }))),
+      home: v.optional(v.array(v.object({
+        type: v.string(), // 'plumber', 'electrician', 'hvac', 'handyman', 'cleaner'
+        name: v.string(),
+        phone: v.optional(v.string()),
+        notes: v.optional(v.string()),
+        lastService: v.optional(v.number()),
+      }))),
+      financial: v.optional(v.array(v.object({
+        type: v.string(), // 'bank', 'accountant', 'financial_advisor', 'insurance'
+        name: v.string(),
+        phone: v.optional(v.string()),
+        accountNumbers: v.optional(v.array(v.string())), // encrypted/hashed
+        notes: v.optional(v.string()),
+      }))),
+    })),
+    
+    // Profile Completion Status
+    profileCompletion: v.optional(v.object({
+      personalInfo: v.optional(v.number()), // 0-100% completion
+      workInfo: v.optional(v.number()),
+      familyInfo: v.optional(v.number()),
+      preferences: v.optional(v.number()),
+      serviceProviders: v.optional(v.number()),
+      overall: v.optional(v.number()),
+      lastUpdated: v.optional(v.number()),
+    })),
+    
     // User preferences - all optional with defaults set by functions
     preferences: v.optional(v.object({
       // AI behavior

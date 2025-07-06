@@ -95,11 +95,11 @@ function formatMemoriesForContext(memories: any[]): string {
 
 function getEnhancedSystemPrompt(basePrompt: string, memoryContext: string, context: string): string {
   const memorySection = memoryContext 
-    ? `\n\nYou have access to the user's memory and past interactions:${memoryContext}`
+    ? `\n\nRelevant context about the user:${memoryContext}`
     : '';
     
   const ragInstructions = memoryContext
-    ? `\n\nUse this memory context to provide personalized responses. Reference past conversations and preferences when relevant, but don't explicitly mention that you're using stored memories.`
+    ? `\n\nUse this context naturally in brief, conversational responses. Don't mention you're using stored information.`
     : '';
     
   return basePrompt + memorySection + ragInstructions;
@@ -112,6 +112,115 @@ const openai = new OpenAI({
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
+
+// Profile extraction function
+async function extractAndUpdateProfile(userMessage: string, context: string) {
+  try {
+    // Simple rule-based extraction for now
+    // In production, this would use more sophisticated NLP or LLM-based extraction
+    
+    const profileUpdates: any = {};
+    const content = userMessage.toLowerCase();
+    
+    // Extract family information
+    const familyInfo = extractFamilyFromMessage(content);
+    if (Object.keys(familyInfo).length > 0) {
+      profileUpdates.familyInfo = familyInfo;
+    }
+    
+    // Extract work information
+    const workInfo = extractWorkFromMessage(content);
+    if (Object.keys(workInfo).length > 0) {
+      profileUpdates.workInfo = workInfo;
+    }
+    
+    // Extract preferences
+    const preferences = extractPreferencesFromMessage(content);
+    if (Object.keys(preferences).length > 0) {
+      profileUpdates.personalPreferences = preferences;
+    }
+    
+    // If we have updates, apply them via the backend
+    if (Object.keys(profileUpdates).length > 0) {
+      // Note: This would need proper authentication context
+      // For now, we'll log the potential updates
+      console.log('Profile updates detected:', profileUpdates);
+      
+      // In production, you'd call the Convex actions here:
+      // await convex.mutation(api.profileFromMemory.applyProfileUpdates, {
+      //   updates: profileUpdates,
+      //   confidence: 0.7
+      // });
+    }
+  } catch (error) {
+    console.error('Profile extraction error:', error);
+  }
+}
+
+function extractFamilyFromMessage(content: string): any {
+  const familyInfo: any = {};
+  
+  // Extract children
+  const childPatterns = [
+    /(?:minha?\s+filha?|my\s+daughter)\s+(\w+)/gi,
+    /(?:meu\s+filho|my\s+son)\s+(\w+)/gi,
+    /(\w+)\s+(?:tem|is)\s+(\d+)\s+(?:anos?|years?\s+old)/gi,
+  ];
+  
+  const children: any[] = [];
+  childPatterns.forEach(pattern => {
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(content)) !== null) {
+      if (match[1]) {
+        children.push({
+          name: match[1].charAt(0).toUpperCase() + match[1].slice(1),
+          relationship: 'child',
+        });
+      }
+    }
+  });
+  
+  if (children.length > 0) {
+    familyInfo.children = children;
+  }
+  
+  return familyInfo;
+}
+
+function extractWorkFromMessage(content: string): any {
+  const workInfo: any = {};
+  
+  // Extract company
+  const companyPatterns = [
+    /(?:trabalho\s+na?|work\s+at)\s+([A-Z][a-zA-Z\s&]+)/gi,
+    /(?:empresa|company)\s+([A-Z][a-zA-Z\s&]+)/gi,
+  ];
+  
+  companyPatterns.forEach(pattern => {
+    const match = content.match(pattern);
+    if (match && match[1]) {
+      workInfo.employment = {
+        company: match[1].trim(),
+      };
+    }
+  });
+  
+  return workInfo;
+}
+
+function extractPreferencesFromMessage(content: string): any {
+  const preferences: any = {};
+  
+  // Extract dietary preferences
+  if (content.includes('vegetarian') || content.includes('vegetariano')) {
+    preferences.lifestyle = { diet: 'vegetarian' };
+  }
+  if (content.includes('vegan') || content.includes('vegano')) {
+    preferences.lifestyle = { diet: 'vegan' };
+  }
+  
+  return preferences;
+}
 
 export async function POST(req: Request) {
   try {
@@ -145,35 +254,25 @@ export async function POST(req: Request) {
       }
     }
 
-    // Create base system prompts
+    // Create base system prompts - optimized for conversation
     const baseSystemPrompts = {
-      work: `You are MAGIS, an AI assistant specialized in workplace productivity and professional communication. 
-             You help with tasks, meetings, project management, and maintaining work-life balance. 
-             Be professional, concise, and action-oriented.
-             
-             You have access to helpful tools:
-             - Calculator: For mathematical calculations and number crunching
-             - Search: For finding information (currently simulated)
-             
-             Use these tools when appropriate to help users more effectively.`,
-      personal: `You are MAGIS, a personal AI companion who knows the user well and helps with daily life. 
-                 You're friendly, supportive, and proactive in following up on experiences and goals. 
-                 Remember conversations and build genuine relationships.
-                 
-                 You have access to helpful tools:
-                 - Calculator: For mathematical calculations and number crunching
-                 - Search: For finding information (currently simulated)
-                 
-                 Use these tools when appropriate to help users more effectively.`,
-      family: `You are MAGIS, a family-oriented AI assistant who helps with household management, 
-               parenting, relationships, and family activities. You're warm, understanding, and focused on 
-               bringing families closer together.
-               
-               You have access to helpful tools:
-               - Calculator: For mathematical calculations and number crunching
-               - Search: For finding information (currently simulated)
-               
-               Use these tools when appropriate to help users more effectively.`
+      work: `You are MAGIS, a practical AI assistant for work productivity. Be concise, professional, and action-oriented. Help with tasks, meetings, and work-life balance.
+
+Tools available: Calculator, Search (use when helpful)
+
+Keep responses brief and conversational unless detail is specifically requested.`,
+      
+      personal: `You are MAGIS, a helpful personal AI assistant. Be friendly, concise, and naturally conversational. Focus on practical help with daily life, appointments, and tasks.
+
+Tools available: Calculator, Search (use when helpful)
+
+Keep responses brief and to-the-point unless the user asks for more detail.`,
+      
+      family: `You are MAGIS, a family-focused AI assistant. Be warm but concise, helping with household management, schedules, and family coordination.
+
+Tools available: Calculator, Search (use when helpful)
+
+Keep responses brief and practical unless detailed help is requested.`
     };
 
     const basePrompt = baseSystemPrompts[context as keyof typeof baseSystemPrompts] || baseSystemPrompts.personal;
@@ -188,8 +287,8 @@ export async function POST(req: Request) {
     if (aiProvider === 'claude') {
       // Call Claude API
       const response = await anthropic.messages.create({
-        model: 'claude-3-sonnet-20240229',
-        max_tokens: 1000,
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 500,
         temperature: 0.7,
         system: systemPrompt,
         messages: messages.map((msg: any) => ({
@@ -224,11 +323,26 @@ export async function POST(req: Request) {
         messages: apiMessages as any,
         stream: true,
         temperature: 0.7,
-        max_tokens: 1000,
+        max_tokens: 500,
       });
 
       // Convert the response into a friendly text-stream
-      const stream = OpenAIStream(response as any);
+      const stream = OpenAIStream(response as any, {
+        // Add callback to extract profile info from user messages
+        onFinal: async () => {
+          // Extract profile information from the conversation in the background
+          if (latestUserMessage.length > 30) {
+            try {
+              // This runs after the response is sent, so it doesn't slow down the chat
+              setTimeout(async () => {
+                await extractAndUpdateProfile(latestUserMessage, context);
+              }, 100);
+            } catch (error) {
+              console.error('Profile extraction failed:', error);
+            }
+          }
+        }
+      });
       
       // Respond with the stream
       return new StreamingTextResponse(stream);

@@ -20,6 +20,8 @@ import type * as http from "../http.js";
 import type * as memory from "../memory.js";
 import type * as memoryConnections from "../memoryConnections.js";
 import type * as memoryPipeline from "../memoryPipeline.js";
+import type * as profile from "../profile.js";
+import type * as profileFromMemory from "../profileFromMemory.js";
 import type * as users from "../users.js";
 
 /**
@@ -38,6 +40,8 @@ declare const fullApi: ApiFromModules<{
   memory: typeof memory;
   memoryConnections: typeof memoryConnections;
   memoryPipeline: typeof memoryPipeline;
+  profile: typeof profile;
+  profileFromMemory: typeof profileFromMemory;
   users: typeof users;
 }>;
 export declare const api: FilterApi<
