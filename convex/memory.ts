@@ -1,6 +1,7 @@
 import { mutation, query, action } from './_generated/server';
 import { v } from 'convex/values';
 import { api } from './_generated/api';
+import { auth } from './auth';
 
 // Store a new memory with embedding
 export const storeMemory = mutation({
@@ -20,23 +21,13 @@ export const storeMemory = mutation({
     sentiment: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
       throw new Error('Not authenticated');
     }
 
-    // Get user ID from auth
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', identity.email!))
-      .first();
-
-    if (!user) {
-      throw new Error('User not found');
-    }
-
     const memoryId = await ctx.db.insert('memories', {
-      userId: user._id,
+      userId: userId,
       content: args.content,
       summary: args.summary,
       sourceType: args.sourceType,
@@ -69,25 +60,15 @@ export const searchMemories = query({
     keywords: v.optional(v.array(v.string())), // Fallback keyword search
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
       throw new Error('Not authenticated');
-    }
-
-    // Get user ID from auth
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', identity.email!))
-      .first();
-
-    if (!user) {
-      throw new Error('User not found');
     }
 
     // For now, use keyword-based search until vector search is available
     let query = ctx.db
       .query('memories')
-      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .withIndex('by_user', (q) => q.eq('userId', userId))
       .filter((q) => q.eq(q.field('isActive'), true));
 
     if (args.context) {
@@ -144,23 +125,14 @@ export const getRecentMemories = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
       throw new Error('Not authenticated');
-    }
-
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', identity.email!))
-      .first();
-
-    if (!user) {
-      throw new Error('User not found');
     }
 
     let query = ctx.db
       .query('memories')
-      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .withIndex('by_user', (q) => q.eq('userId', userId))
       .filter((q) => q.eq(q.field('isActive'), true));
 
     if (args.context) {
@@ -181,18 +153,9 @@ export const getImportantMemories = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
       throw new Error('Not authenticated');
-    }
-
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', identity.email!))
-      .first();
-
-    if (!user) {
-      throw new Error('User not found');
     }
 
     const minImportance = args.minImportance || 7;
@@ -200,7 +163,7 @@ export const getImportantMemories = query({
     return await ctx.db
       .query('memories')
       .withIndex('by_importance', (q) => 
-        q.eq('userId', user._id).gte('importance', minImportance)
+        q.eq('userId', userId).gte('importance', minImportance)
       )
       .filter((q) => {
         if (args.context) {
@@ -224,8 +187,8 @@ export const updateMemory = mutation({
     isActive: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
       throw new Error('Not authenticated');
     }
 
@@ -235,12 +198,7 @@ export const updateMemory = mutation({
     }
 
     // Verify ownership
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', identity.email!))
-      .first();
-
-    if (!user || memory.userId !== user._id) {
+    if (memory.userId !== userId) {
       throw new Error('Not authorized');
     }
 
@@ -333,23 +291,14 @@ export const searchByKeywords = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
       throw new Error('Not authenticated');
-    }
-
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', identity.email!))
-      .first();
-
-    if (!user) {
-      throw new Error('User not found');
     }
 
     const memories = await ctx.db
       .query('memories')
-      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .withIndex('by_user', (q) => q.eq('userId', userId))
       .filter((q) => q.eq(q.field('isActive'), true))
       .collect();
 

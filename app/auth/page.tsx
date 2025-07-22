@@ -17,9 +17,28 @@ export default function AuthPage() {
     name: "",
   });
 
+  // Email validation helper
+  const isValidEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  // Password complexity validation helper
+  const isValidPassword = (password: string) => {
+    return password.length >= 8 && 
+           /[a-zA-Z]/.test(password) && 
+           /[0-9]/.test(password);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+
+    // Email validation
+    if (!isValidEmail(formData.email)) {
+      toast.error("Please enter a valid email address");
+      setIsLoading(false);
+      return;
+    }
 
     // Validation for sign up
     if (isSignUp) {
@@ -28,8 +47,8 @@ export default function AuthPage() {
         setIsLoading(false);
         return;
       }
-      if (formData.password.length < 6) {
-        toast.error("Password must be at least 6 characters!");
+      if (!isValidPassword(formData.password)) {
+        toast.error("Password must be at least 8 characters and include letters and numbers!");
         setIsLoading(false);
         return;
       }
@@ -64,7 +83,24 @@ export default function AuthPage() {
     } catch (error: any) {
       console.error("Auth error:", error);
       const errorMessage = error?.message || error?.toString() || "Unknown error";
-      toast.error(isSignUp ? `Failed to create account: ${errorMessage}` : `Failed to sign in: ${errorMessage}`);
+      
+      // Provide user-friendly error messages
+      let friendlyMessage;
+      if (isSignUp) {
+        if (errorMessage.includes("Invalid password")) {
+          friendlyMessage = "Password must be at least 8 characters and include letters and numbers.";
+        } else {
+          friendlyMessage = "Failed to create account. Please try again.";
+        }
+      } else {
+        if (errorMessage.includes("InvalidAccountId") || errorMessage.includes("Invalid")) {
+          friendlyMessage = "Email or password is incorrect. Please check your credentials and try again.";
+        } else {
+          friendlyMessage = "Failed to sign in. Please try again.";
+        }
+      }
+      
+      toast.error(friendlyMessage);
     } finally {
       setIsLoading(false);
     }
@@ -137,7 +173,7 @@ export default function AuthPage() {
                 value={formData.password}
                 onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-magis-500 focus:ring-magis-500"
-                placeholder={isSignUp ? "Create a password (min 6 characters)" : "Enter your password"}
+                placeholder={isSignUp ? "Create a password (min 8 chars, letters & numbers)" : "Enter your password"}
               />
             </div>
 
