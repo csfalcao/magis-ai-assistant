@@ -1,6 +1,12 @@
-import OpenAI from 'openai';
-import Anthropic from '@anthropic-ai/sdk';
-import { OpenAIStream, StreamingTextResponse } from 'ai';
+// Using AI SDK providers instead of direct SDK imports
+import { streamText } from 'ai';
+import { openai } from '@ai-sdk/openai';
+import { anthropic as anthropicProvider } from '@ai-sdk/anthropic';
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '@/convex/_generated/api';
+
+// Initialize Convex client
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 // Basic tools for MAGIS
 const tools = [
@@ -105,13 +111,7 @@ function getEnhancedSystemPrompt(basePrompt: string, memoryContext: string, cont
   return basePrompt + memorySection + ragInstructions;
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+// AI SDK providers are configured automatically using environment variables
 
 // Profile extraction function
 async function extractAndUpdateProfile(userMessage: string, context: string) {
@@ -225,7 +225,7 @@ function extractPreferencesFromMessage(content: string): any {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { messages, context = 'personal', aiProvider = 'openai' } = body;
+    const { messages, context = 'personal', aiProvider = 'openai', conversationId } = body;
 
     if (!messages || !Array.isArray(messages)) {
       return new Response('Invalid messages format', { status: 400 });
@@ -251,6 +251,15 @@ export async function POST(req: Request) {
       } catch (error) {
         // RAG retrieval failed, continue without memories
         console.error('Memory retrieval failed:', error);
+      }
+
+      // Process message for proactive triggers (experiences and contacts)
+      try {
+        // This will detect experiences and create contacts automatically
+        await processMessageForProactive(latestUserMessage, context, conversationId);
+      } catch (error) {
+        console.error('Proactive processing failed:', error);
+        // Continue anyway - proactive features are nice-to-have
       }
     }
 
@@ -284,69 +293,34 @@ Keep responses brief and practical unless detailed help is requested.`
       ...messages
     ];
 
-    if (aiProvider === 'claude') {
-      // Call Claude API
-      const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 500,
-        temperature: 0.7,
-        system: systemPrompt,
-        messages: messages.map((msg: any) => ({
-          role: msg.role,
-          content: msg.content,
-        })),
-        stream: true,
-      });
-      
-      // Convert Claude stream to text stream
-      const stream = new ReadableStream({
-        async start(controller) {
+    // Use AI SDK 4.x streamText for both providers
+    const result = await streamText({
+      model: aiProvider === 'claude' 
+        ? anthropicProvider('claude-3-5-sonnet-20241022')
+        : openai('gpt-4-turbo'),
+      messages: messages.map((msg: any) => ({
+        role: msg.role,
+        content: msg.content,
+      })),
+      system: systemPrompt,
+      temperature: 0.7,
+      maxTokens: 500,
+      onFinish: async () => {
+        // Extract profile information from the conversation in the background
+        if (latestUserMessage.length > 30) {
           try {
-            for await (const chunk of response) {
-              if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-                controller.enqueue(new TextEncoder().encode(chunk.delta.text));
-              }
-            }
+            // This runs after the response is sent, so it doesn't slow down the chat
+            setTimeout(async () => {
+              await extractAndUpdateProfile(latestUserMessage, context);
+            }, 100);
           } catch (error) {
-            // Silent error - streaming will end
-          } finally {
-            controller.close();
-          }
-        },
-      });
-      
-      return new StreamingTextResponse(stream);
-    } else {
-      // Call OpenAI API (default) - try without tools first for simplicity
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
-        messages: apiMessages as any,
-        stream: true,
-        temperature: 0.7,
-        max_tokens: 500,
-      });
-
-      // Convert the response into a friendly text-stream
-      const stream = OpenAIStream(response as any, {
-        // Add callback to extract profile info from user messages
-        onFinal: async () => {
-          // Extract profile information from the conversation in the background
-          if (latestUserMessage.length > 30) {
-            try {
-              // This runs after the response is sent, so it doesn't slow down the chat
-              setTimeout(async () => {
-                await extractAndUpdateProfile(latestUserMessage, context);
-              }, 100);
-            } catch (error) {
-              console.error('Profile extraction failed:', error);
-            }
+            console.error('Profile extraction failed:', error);
           }
         }
-      });
-      
-      // Respond with the stream
-      return new StreamingTextResponse(stream);
-    }
+      }
+    });
+
+    return result.toDataStreamResponse();
 
   } catch (error) {
     return new Response(
@@ -356,5 +330,64 @@ Keep responses brief and practical unless detailed help is requested.`
         headers: { 'Content-Type': 'application/json' }
       }
     );
+  }
+}
+
+// Process message for proactive triggers
+async function processMessageForProactive(messageContent: string, context: string, conversationId?: string) {
+  try {
+    // Skip proactive processing if no valid conversationId
+    if (!conversationId) {
+      console.log('⏭️ Skipping proactive processing - no valid conversationId');
+      return { experienceCreated: false };
+    }
+
+    // Create experience from message if detected
+    const experienceId = await convex.action(api.experiences.detectAndCreateExperience, {
+      messageContent,
+      conversationId: conversationId as any, // Cast to Convex ID type
+      context
+    });
+
+    if (experienceId) {
+      console.log('✅ Experience created:', experienceId);
+    }
+
+    // Create memory from message (basic memory extraction)
+    await createMemoryFromMessage(messageContent, context, conversationId);
+
+    return { experienceCreated: !!experienceId };
+  } catch (error) {
+    console.error('Proactive processing error:', error);
+    // Don't throw - this is a nice-to-have feature
+    return { error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+// Create memory from message content
+async function createMemoryFromMessage(content: string, context: string, conversationId?: string) {
+  try {
+    // Skip memory creation if no valid conversationId
+    if (!conversationId) {
+      console.log('⏭️ Skipping memory creation - no valid conversationId');
+      return null;
+    }
+
+    // Simple memory creation - in production this would use the full memory pipeline
+    const memoryId = await convex.action(api.memory.createMemoryFromMessage, {
+      messageId: 'temp-message-id' as any, // Cast to Convex ID type
+      conversationId: conversationId as any, // Cast to Convex ID type
+      content: content,
+      context: context
+    });
+
+    if (memoryId) {
+      console.log('✅ Memory created:', memoryId);
+    }
+
+    return memoryId;
+  } catch (error) {
+    console.error('Memory creation error:', error);
+    return null;
   }
 }

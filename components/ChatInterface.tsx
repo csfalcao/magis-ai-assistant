@@ -52,6 +52,7 @@ export function ChatInterface() {
     body: {
       context: currentContext,
       aiProvider: aiProvider,
+      conversationId: currentConversationId,
     },
     // onMessage removed - not needed in current AI SDK version
     onFinish: async (message) => {
@@ -405,6 +406,11 @@ export function ChatInterface() {
                 </div>
               </div>
             ))}
+
+            {/* Show proactive messages */}
+            {/* TODO: Implement proactive message fetching and display */}
+            {/* This would show messages like "How did your dentist appointment go?" */}
+            {/* For now, we can add a placeholder to show the concept */}
             
             {/* Show streaming AI response only if not already saved to Convex */}
             {isLoading && aiMessages.length > 0 && (

@@ -484,6 +484,7 @@ export default defineSchema({
     context: v.string(), // 'work', 'personal', 'family'
     
     // Experience timeline
+    scheduledTimeframe: v.optional(v.string()), // "next month", "tomorrow", etc.
     scheduledAt: v.optional(v.number()), // When it was scheduled to happen
     actualStartAt: v.optional(v.number()), // When it actually started
     actualEndAt: v.optional(v.number()), // When it actually ended
@@ -507,6 +508,7 @@ export default defineSchema({
     // Follow-up tracking
     followUpCount: v.number(),
     lastFollowUpAt: v.optional(v.number()),
+    followUpScheduledAt: v.optional(v.number()), // When follow-up should happen
     followUpCompleted: v.boolean(),
     
     // Location and people
@@ -521,6 +523,71 @@ export default defineSchema({
     .index('by_status', ['userId', 'status'])
     .index('by_scheduled', ['userId', 'scheduledAt'])
     .index('by_follow_up', ['userId', 'followUpEnabled', 'followUpCompleted']),
+
+  // Contact management with completion priority
+  contacts: defineTable({
+    userId: v.id('users'),
+    
+    // Basic contact information
+    name: v.string(),
+    type: v.string(), // 'dentist', 'restaurant', 'doctor', 'friend', 'business'
+    context: v.string(), // 'work', 'personal', 'family'
+    
+    // Contact details (essential data)
+    phone: v.optional(v.string()),
+    address: v.optional(v.string()),
+    email: v.optional(v.string()),
+    website: v.optional(v.string()),
+    
+    // Completion tracking
+    completionStatus: v.string(), // 'incomplete', 'partial', 'complete'
+    completionScore: v.number(), // 0-100 based on essential fields
+    completionPriority: v.string(), // 'high', 'medium', 'low'
+    lastCompletionRequest: v.optional(v.number()),
+    
+    // Experience and trust
+    experienceCount: v.number(),
+    averageRating: v.number(), // 0-10 average rating from experiences
+    lastInteraction: v.optional(v.number()),
+    trustLevel: v.string(), // 'unknown', 'researched', 'tried', 'trusted'
+    
+    // Discovery and notes
+    discoveryMethod: v.string(), // How we learned about them
+    firstMention: v.number(),
+    notes: v.string(), // Rich notes including experiences
+    
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_user', ['userId'])
+    .index('by_user_type', ['userId', 'type'])
+    .index('by_completion', ['userId', 'completionPriority'])
+    .index('by_trust', ['userId', 'trustLevel']),
+
+  // Proactive messages for follow-ups and contact completion
+  proactiveMessages: defineTable({
+    userId: v.id('users'),
+    
+    // Related entities
+    experienceId: v.optional(v.id('experiences')),
+    contactId: v.optional(v.id('contacts')),
+    
+    // Message content
+    message: v.string(),
+    messageType: v.string(), // 'follow_up', 'contact_completion', 'check_in'
+    
+    // Status tracking
+    status: v.string(), // 'pending', 'sent', 'completed'
+    userResponse: v.optional(v.string()),
+    
+    // Timestamps
+    createdAt: v.number(),
+    sentAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+  })
+    .index('by_user_status', ['userId', 'status'])
+    .index('by_experience', ['experienceId'])
+    .index('by_contact', ['contactId']),
 
   // Learning patterns - what MAGIS learns about user preferences
   learningPatterns: defineTable({
