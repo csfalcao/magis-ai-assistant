@@ -1,0 +1,350 @@
+// Magis Voice Emotion + Memory Creation System
+import { mutation, action } from "./_generated/server";
+import { api } from "./_generated/api";
+
+// Enhanced schema with emotional context
+export default defineSchema({
+  conversations: defineTable({
+    userId: v.string(),
+    rawInput: v.string(),
+    audioUrl: v.optional(v.string()), // Voice recording URL
+    voiceEmotion: v.optional(v.object({
+      primary: v.string(), // "calm", "anxious", "stressed", "excited"
+      intensity: v.number(), // 0-100
+      confidence: v.number(), // 0-100
+      secondaryEmotions: v.optional(v.array(v.string())),
+    })),
+    timestamp: v.number(),
+    processed: v.boolean(),
+  }),
+
+  memories: defineTable({
+    userId: v.string(),
+    conversationId: v.id("conversations"),
+    
+    // Core extraction
+    who: v.string(),
+    what: v.string(), 
+    when: v.optional(v.string()),
+    
+    // Auto-categorization with emotional context
+    type: v.union(v.literal("personal"), v.literal("work"), v.literal("family")),
+    subject: v.string(),
+    priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("emergency")),
+    emotionalContext: v.optional(v.object({
+      detectedMood: v.string(), // "calm", "anxious", "urgent", "excited"
+      suggestedResponse: v.string(), // "supportive", "neutral", "encouraging"
+      moodInfluencedPriority: v.boolean(), // Did voice emotion affect priority?
+    })),
+    
+    // Memory evolution
+    memoryType: v.union(v.literal("note"), v.literal("task"), v.literal("event"), v.literal("reminder")),
+    status: v.union(v.literal("pending"), v.literal("in_progress"), v.literal("completed"), v.literal("cancelled")),
+    
+    // MCP integration results
+    calendarConflicts: v.optional(v.array(v.object({
+      eventId: v.string(),
+      title: v.string(),
+      datetime: v.string(),
+      duration: v.string(),
+    }))),
+    suggestedTimes: v.optional(v.array(v.object({
+      datetime: v.string(),
+      confidence: v.string(), // "high", "medium", "low"
+      reason: v.string(), // "no conflicts", "preferred time slot"
+    }))),
+    
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }),
+});
+
+// Voice Emotion Analysis Service
+class VoiceEmotionAnalyzer {
+  private humeAPI: string;
+  
+  constructor() {
+    this.humeAPI = process.env.HUME_AI_API_KEY!;
+  }
+
+  async analyzeEmotion(audioUrl: string) {
+    // Using Hume AI's voice emotion API
+    const response = await fetch('https://api.hume.ai/v0/batch/jobs', {
+      method: 'POST',
+      headers: {
+        'X-Hume-Api-Key': this.humeAPI,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        models: {
+          prosody: {}, // Voice emotion model
+        },
+        transcription: {
+          language: 'en',
+        },
+        urls: [audioUrl],
+      }),
+    });
+
+    const { job_id } = await response.json();
+    
+    // Poll for results (simplified - would use webhooks in production)
+    const results = await this.pollForResults(job_id);
+    
+    return this.parseEmotionResults(results);
+  }
+
+  private parseEmotionResults(results: any) {
+    const emotions = results.results.predictions[0].models.prosody.grouped_predictions[0].predictions;
+    
+    // Extract top emotions and intensity
+    const topEmotion = emotions.reduce((max: any, emotion: any) => 
+      emotion.score > max.score ? emotion : max
+    );
+
+    return {
+      primary: this.mapEmotionToMood(topEmotion.name),
+      intensity: Math.round(topEmotion.score * 100),
+      confidence: 85, // Hume AI typically has high confidence
+      secondaryEmotions: emotions
+        .filter((e: any) => e.score > 0.3 && e.name !== topEmotion.name)
+        .map((e: any) => this.mapEmotionToMood(e.name))
+        .slice(0, 2),
+    };
+  }
+
+  private mapEmotionToMood(emotion: string): string {
+    const moodMap: Record<string, string> = {
+      'Anxiety': 'anxious',
+      'Stress': 'stressed', 
+      'Pain': 'distressed',
+      'Calmness': 'calm',
+      'Excitement': 'excited',
+      'Sadness': 'sad',
+      'Anger': 'frustrated',
+      'Joy': 'happy',
+      'Fear': 'worried',
+    };
+    return moodMap[emotion] || 'neutral';
+  }
+}
+
+// Enhanced Memory Creation with Voice + MCP Integration
+export const processVoiceInput = action({
+  args: {
+    userId: v.string(),
+    rawInput: v.string(),
+    audioUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, { userId, rawInput, audioUrl }) => {
+    // Step 1: Parallel processing for speed (2-5 second target)
+    const tasks = await Promise.all([
+      // Voice emotion analysis (if audio provided)
+      audioUrl ? new VoiceEmotionAnalyzer().analyzeEmotion(audioUrl) : null,
+      
+      // MCP Calendar check for availability
+      ctx.runAction(api.mcp.checkCalendarAvailability, { 
+        userId,
+        timeframe: "next 2 weeks" 
+      }),
+      
+      // Basic entity extraction (lightweight - Claude Haiku)
+      ctx.runAction(api.claude.extractBasicEntities, {
+        input: rawInput,
+        model: "claude-3-haiku" // Cost optimization
+      }),
+    ]);
+
+    const [voiceEmotion, calendarData, basicEntities] = tasks;
+
+    // Step 2: Store raw conversation with emotion data
+    const conversationId = await ctx.runMutation(api.conversations.create, {
+      userId,
+      rawInput,
+      audioUrl,
+      voiceEmotion,
+      timestamp: Date.now(),
+      processed: false,
+    });
+
+    // Step 3: Enhanced analysis with emotional context
+    const enhancedAnalysisPrompt = `
+Analyze this conversational input with emotional context:
+Input: "${rawInput}"
+Voice emotion: ${voiceEmotion ? `${voiceEmotion.primary} (${voiceEmotion.intensity}% intensity)` : 'text only'}
+Calendar conflicts: ${JSON.stringify(calendarData.conflicts)}
+
+Based on voice emotion, adjust priority assessment:
+- "anxious/stressed" + health topics = likely higher priority
+- "calm" + routine topics = normal priority  
+- "distressed/pain" = emergency priority
+- "excited" = positive context, possibly celebration
+
+Respond with JSON:
+{
+  "who": "string",
+  "what": "string", 
+  "when": "string|null",
+  "type": "personal|work|family",
+  "subject": "string",
+  "priority": "low|medium|high|emergency",
+  "emotionalContext": {
+    "detectedMood": "string",
+    "suggestedResponse": "supportive|neutral|encouraging|urgent",
+    "moodInfluencedPriority": boolean
+  },
+  "memoryType": "note|task|event|reminder",
+  "needsClarification": ["string"],
+  "suggestedCalendarTimes": ["string"], // If calendar conflicts found
+  "context": "string"
+}
+
+Example: "I need to go to the dentist" + anxious voice = higher priority, supportive response
+`;
+
+    const response = await window.claude.complete(enhancedAnalysisPrompt);
+    const analysis = JSON.parse(response);
+
+    // Step 4: Create memory with emotional and calendar context
+    const memoryId = await ctx.runMutation(api.memories.create, {
+      userId,
+      conversationId,
+      ...analysis,
+      calendarConflicts: calendarData.conflicts,
+      suggestedTimes: analysis.suggestedCalendarTimes?.map((time: string) => ({
+        datetime: time,
+        confidence: "medium",
+        reason: "no conflicts detected"
+      })),
+      status: "pending",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // Step 5: Generate emotionally appropriate response
+    const responsePrompt = `
+User said: "${rawInput}"
+Detected emotion: ${voiceEmotion?.primary || 'neutral'} (${voiceEmotion?.intensity || 0}% intensity)
+Analysis: ${analysis.what} (${analysis.priority} priority)
+Calendar status: ${calendarData.conflicts.length > 0 ? 'conflicts found' : 'availability found'}
+
+Generate a natural, emotionally appropriate response that:
+1. Acknowledges their emotional state if relevant
+2. Shows understanding of their need
+3. Offers practical next steps based on calendar data
+4. Asks clarifying questions naturally
+
+Emotional guidelines:
+- Anxious/stressed: Be reassuring and supportive
+- Calm: Be efficient and helpful  
+- Excited: Match their energy positively
+- Distressed: Be empathetic and prioritize urgency
+
+Don't mention emotion detection explicitly. Be natural and human-like.
+`;
+
+    const conversationalResponse = await window.claude.complete(responsePrompt);
+
+    // Mark conversation as processed
+    await ctx.runMutation(api.conversations.markProcessed, { conversationId });
+
+    return {
+      memoryId,
+      response: conversationalResponse,
+      emotionalContext: analysis.emotionalContext,
+      calendarSuggestions: analysis.suggestedCalendarTimes,
+      needsClarification: analysis.needsClarification,
+    };
+  },
+});
+
+// MCP Calendar Integration
+export const checkCalendarAvailability = action({
+  args: {
+    userId: v.string(), 
+    timeframe: v.string(),
+    duration: v.optional(v.string()),
+  },
+  handler: async (ctx, { userId, timeframe, duration = "1 hour" }) => {
+    // This would integrate with Google Calendar MCP server
+    const mcpResponse = await ctx.runAction(api.mcp.googleCalendar.getAvailability, {
+      userId,
+      timeframe,
+      duration,
+      calendars: ["primary", "work", "family"], // Multi-calendar support
+    });
+
+    // Process conflicts and suggest alternatives
+    const conflicts = mcpResponse.events.filter((event: any) => 
+      event.status === 'confirmed'
+    );
+
+    const availableSlots = mcpResponse.freeTime.map((slot: any) => ({
+      datetime: slot.start,
+      duration: slot.duration,
+      confidence: slot.conflicts === 0 ? "high" : "medium",
+    }));
+
+    return {
+      conflicts,
+      availableSlots,
+      recommendedTimes: availableSlots.slice(0, 3), // Top 3 suggestions
+    };
+  },
+});
+
+// Example conversation flow with voice emotion:
+/*
+User speaks: "I need to go to the dentist" [anxious voice, 75% intensity]
+
+Magis processes:
+1. Voice emotion: anxious (75% intensity) 
+2. Calendar check: conflicts on Tuesday, free Wednesday-Friday
+3. Entity extraction: WHO=user, WHAT=dentist appointment, WHEN=null
+4. Priority assessment: medium→high (anxiety suggests urgency)
+5. Memory creation: health/personal task, high priority
+
+Magis responds: "I can hear this is concerning you. Let's get you scheduled soon. 
+I see you're free Wednesday afternoon or Friday morning - both work well for dental appointments. 
+Is this for something specific that's bothering you, or routine care?"
+
+Follow-up conversation naturally gathers:
+- Type of dental issue (pain = emergency, cleaning = routine)
+- Preferred dentist or need recommendations  
+- Specific time preferences
+- Insurance considerations
+
+Memory evolves: Note → Task → Calendar Event with emotional context preserved
+*/
+
+// Advanced: Mood Pattern Recognition
+export const analyzeMoodPatterns = action({
+  args: {
+    userId: v.string(),
+    timeRange: v.string(),
+  },
+  handler: async (ctx, { userId, timeRange }) => {
+    const conversations = await ctx.db.query("conversations")
+      .filter(q => q.eq(q.field("userId"), userId))
+      .filter(q => q.gte(q.field("timestamp"), Date.now() - 30 * 24 * 60 * 60 * 1000)) // 30 days
+      .collect();
+
+    const emotionTrends = conversations
+      .filter(c => c.voiceEmotion)
+      .map(c => ({
+        date: new Date(c.timestamp).toDateString(),
+        emotion: c.voiceEmotion!.primary,
+        intensity: c.voiceEmotion!.intensity,
+        subject: c.rawInput,
+      }));
+
+    // Detect patterns for proactive suggestions
+    const patterns = this.detectEmotionalPatterns(emotionTrends);
+    
+    return {
+      trends: emotionTrends,
+      patterns,
+      insights: this.generateMoodInsights(patterns),
+    };
+  },
+});
