@@ -1,6 +1,7 @@
 import { mutation, query, action } from './_generated/server';
 import { v } from 'convex/values';
 import { api } from './_generated/api';
+import { auth } from './auth';
 
 // ==================== PROFILE RETRIEVAL ====================
 
@@ -8,34 +9,31 @@ import { api } from './_generated/api';
 export const getUserProfile = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
       throw new Error('Not authenticated');
     }
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', identity.email!))
-      .first();
-
+    const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error('User not found');
     }
 
+    // Return profile with safe defaults for missing data
     return {
       _id: user._id,
-      email: user.email,
-      name: user.name,
-      avatar: user.avatar,
-      assistantName: user.assistantName,
-      personalInfo: user.personalInfo,
-      workInfo: user.workInfo,
-      familyInfo: user.familyInfo,
-      personalPreferences: user.personalPreferences,
-      serviceProviders: user.serviceProviders,
-      profileCompletion: user.profileCompletion,
-      preferences: user.preferences,
-      onboardingCompleted: user.onboardingCompleted,
+      email: user.email || '',
+      name: user.name || '',
+      avatar: user.avatar || null,
+      assistantName: user.assistantName || 'MAGIS',
+      personalInfo: user.personalInfo || {},
+      workInfo: user.workInfo || {},
+      familyInfo: user.familyInfo || {},
+      personalPreferences: user.personalPreferences || {},
+      serviceProviders: user.serviceProviders || {},
+      profileCompletion: user.profileCompletion || { overall: 0 },
+      preferences: user.preferences || {},
+      onboardingCompleted: user.onboardingCompleted || false,
     };
   },
 });
@@ -53,16 +51,12 @@ export const getProfileSection = query({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
       throw new Error('Not authenticated');
     }
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', identity.email!))
-      .first();
-
+    const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -106,16 +100,12 @@ export const updatePersonalInfo = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
       throw new Error('Not authenticated');
     }
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', identity.email!))
-      .first();
-
+    const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -185,16 +175,12 @@ export const updateWorkInfo = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
       throw new Error('Not authenticated');
     }
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', identity.email!))
-      .first();
-
+    const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -276,16 +262,12 @@ export const updateFamilyInfo = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
       throw new Error('Not authenticated');
     }
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', identity.email!))
-      .first();
-
+    const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -315,16 +297,12 @@ export const addFamilyMember = mutation({
     member: v.any(), // Will validate based on type
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
       throw new Error('Not authenticated');
     }
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', identity.email!))
-      .first();
-
+    const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -397,16 +375,12 @@ export const updateServiceProviders = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
       throw new Error('Not authenticated');
     }
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', identity.email!))
-      .first();
-
+    const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -437,16 +411,12 @@ export const updateProfileCompletion = mutation({
     section: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
       throw new Error('Not authenticated');
     }
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', identity.email!))
-      .first();
-
+    const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -556,16 +526,12 @@ function calculateServiceProvidersCompletion(serviceProviders: any): number {
 export const completeOnboarding = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
       throw new Error('Not authenticated');
     }
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', identity.email!))
-      .first();
-
+    const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -582,16 +548,12 @@ export const completeOnboarding = mutation({
 export const getOnboardingStatus = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
       throw new Error('Not authenticated');
     }
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', identity.email!))
-      .first();
-
+    const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error('User not found');
     }
