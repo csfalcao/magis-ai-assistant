@@ -1,0 +1,325 @@
+import { v } from "convex/values";
+import { action, mutation } from "./_generated/server";
+import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+
+/**
+ * Testing utilities for proactive conversations
+ * These functions help test the proactive conversation system during development
+ */
+
+/**
+ * Create a test experience to trigger proactive follow-ups
+ */
+export const createTestExperience = mutation({
+  args: {
+    userId: v.union(v.id("users"), v.string()),
+    title: v.string(),
+    experienceType: v.string(),
+    scheduledAt: v.optional(v.number()),
+    context: v.optional(v.string()),
+    importance: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    console.log('🧪 Creating test experience:', args.title);
+    
+    const scheduledAt = args.scheduledAt || Date.now() - (2 * 60 * 60 * 1000); // Default: 2 hours ago
+    
+    const experienceId = await ctx.db.insert("experiences", {
+      userId: args.userId,
+      title: args.title,
+      description: `Test experience for proactive conversation testing`,
+      context: args.context || "personal",
+      scheduledAt,
+      experienceType: args.experienceType,
+      importance: args.importance || 7,
+      status: "scheduled", // Will be detected as completed by time-based detection
+      followUpEnabled: true,
+      followUpTiming: {
+        immediate: false,
+        delayed: 4, // 4 hours after completion
+        nextDay: false,
+      },
+      followUpCount: 0,
+      followUpCompleted: false,
+      location: "Test Location",
+      participants: ["user"],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    
+    console.log('✅ Test experience created:', experienceId);
+    return experienceId;
+  },
+});
+
+/**
+ * Simulate the completion of an experience and trigger follow-up
+ */
+export const simulateExperienceCompletion = action({
+  args: {
+    experienceId: v.id("experiences"),
+    completionTime: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    console.log('🧪 Simulating experience completion for:', args.experienceId);
+    
+    const completionTime = args.completionTime || Date.now();
+    
+    // Mark experience as completed
+    const completionResult = await ctx.runMutation(api.experienceMonitoring.markExperienceCompleted, {
+      experienceId: args.experienceId,
+      completionMethod: "test_simulation",
+      completedAt: completionTime,
+      outcome: "Test completion",
+    });
+    
+    if (!completionResult.success) {
+      return {
+        success: false,
+        error: completionResult.error,
+      };
+    }
+    
+    // Trigger proactive follow-up
+    const followUpResult = await ctx.runAction(api.proactiveConversations.processExperienceCompletion, {
+      experienceId: args.experienceId,
+      completionTime,
+    });
+    
+    return {
+      success: true,
+      completion: completionResult,
+      followUp: followUpResult,
+    };
+  },
+});
+
+/**
+ * Create a complete test scenario
+ */
+export const createTestScenario = action({
+  args: {
+    userId: v.union(v.id("users"), v.string()),
+    scenarioType: v.string(), // "dentist", "restaurant", "meeting", "travel"
+  },
+  handler: async (ctx, args) => {
+    console.log('🧪 Creating test scenario:', args.scenarioType);
+    
+    const scenarios = {
+      dentist: {
+        title: "Dentist appointment with Dr. Smith",
+        experienceType: "health",
+        context: "personal",
+        importance: 8,
+        scheduledAt: Date.now() - (3 * 60 * 60 * 1000), // 3 hours ago
+      },
+      restaurant: {
+        title: "Dinner at Luigi's Italian Restaurant",
+        experienceType: "meal",
+        context: "personal",
+        importance: 6,
+        scheduledAt: Date.now() - (18 * 60 * 60 * 1000), // 18 hours ago (last night)
+      },
+      meeting: {
+        title: "Quarterly review meeting with Sarah",
+        experienceType: "meeting",
+        context: "work",
+        importance: 7,
+        scheduledAt: Date.now() - (4 * 60 * 60 * 1000), // 4 hours ago
+      },
+      travel: {
+        title: "Business trip to San Francisco",
+        experienceType: "travel",
+        context: "work",
+        importance: 9,
+        scheduledAt: Date.now() - (6 * 60 * 60 * 1000), // 6 hours ago
+      },
+    };
+    
+    const scenario = scenarios[args.scenarioType as keyof typeof scenarios];
+    if (!scenario) {
+      return {
+        success: false,
+        error: `Unknown scenario type: ${args.scenarioType}`,
+        availableScenarios: Object.keys(scenarios),
+      };
+    }
+    
+    // Create the test experience
+    const experienceId = await ctx.runMutation(api.proactiveTest.createTestExperience, {
+      userId: args.userId,
+      ...scenario,
+    });
+    
+    // Simulate completion and follow-up
+    const simulationResult = await ctx.runAction(api.proactiveTest.simulateExperienceCompletion, {
+      experienceId,
+      completionTime: scenario.scheduledAt + (60 * 60 * 1000), // 1 hour after scheduled time
+    });
+    
+    return {
+      success: true,
+      scenario: args.scenarioType,
+      experienceId,
+      simulation: simulationResult,
+    };
+  },
+});
+
+/**
+ * Test follow-up message generation
+ */
+export const testFollowUpGeneration = action({
+  args: {
+    experienceType: v.string(),
+    experienceTitle: v.string(),
+    userId: v.union(v.id("users"), v.string()),
+    userPreferences: v.optional(v.object({
+      communicationStyle: v.optional(v.string()),
+      responseLength: v.optional(v.string()),
+      humor: v.optional(v.boolean()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    console.log('🧪 Testing follow-up generation for:', args.experienceTitle);
+    
+    // Create a mock experience for testing
+    const mockExperience = {
+      title: args.experienceTitle,
+      experienceType: args.experienceType,
+      context: "personal",
+      importance: 7,
+      scheduledAt: Date.now() - (4 * 60 * 60 * 1000),
+      location: "Test Location",
+    };
+    
+    // Create a mock follow-up
+    const mockFollowUp = {
+      followUpType: `${args.experienceType}_follow_up`,
+      timing: {
+        experienceType: args.experienceType,
+        baseTiming: 4,
+        contextMultiplier: 1.0,
+        importanceBonus: 0,
+        importanceAdjustment: 0,
+        totalHours: 4,
+        reasoning: `Test follow-up for ${args.experienceType}`,
+      },
+    };
+    
+    // Create a mock user profile
+    const mockUserProfile = {
+      personalPreferences: {
+        communication: {
+          preferredStyle: args.userPreferences?.communicationStyle || "friendly",
+          responseLength: args.userPreferences?.responseLength || "brief",
+          humor: args.userPreferences?.humor || false,
+        },
+      },
+    };
+    
+    // Generate the follow-up prompt (same logic as in proactiveConversations.ts)
+    const contextInfo = {
+      health: "a healthcare appointment or medical procedure",
+      meal: "a dining experience or meal", 
+      meeting: "a meeting or work event",
+      travel: "a trip or travel experience",
+      entertainment: "an entertainment event or activity",
+      other: "an experience or event",
+    };
+    
+    const experienceDescription = contextInfo[args.experienceType as keyof typeof contextInfo] || contextInfo.other;
+    const communicationStyle = mockUserProfile.personalPreferences.communication.preferredStyle;
+    const responseLength = mockUserProfile.personalPreferences.communication.responseLength;
+    const useHumor = mockUserProfile.personalPreferences.communication.humor;
+    
+    const prompt = `
+You are MAGIS, a caring AI assistant checking in with a user after ${experienceDescription}.
+
+Experience Details:
+- Title: "${mockExperience.title}"
+- Type: ${mockExperience.experienceType}
+- Context: ${mockExperience.context}
+- Importance: ${mockExperience.importance}/10
+- Location: ${mockExperience.location}
+- When: ${new Date(mockExperience.scheduledAt).toLocaleDateString()}
+
+User Communication Preferences:
+- Style: ${communicationStyle}
+- Length: ${responseLength}
+- Humor: ${useHumor ? "appreciated" : "keep professional"}
+
+Generate a natural, caring follow-up message that feels like a thoughtful friend checking in.`;
+    
+    // Generate the message using AI
+    const messageResult = await ctx.runAction(api.ai.generateFollowUpMessage, {
+      prompt,
+      userId: args.userId,
+      experienceType: args.experienceType,
+    });
+    
+    return {
+      success: true,
+      experienceType: args.experienceType,
+      experienceTitle: args.experienceTitle,
+      userPreferences: args.userPreferences,
+      generatedMessage: messageResult.message,
+      tone: messageResult.tone,
+      provider: messageResult.provider,
+      prompt: prompt.substring(0, 200) + '...',
+    };
+  },
+});
+
+/**
+ * Clean up test data
+ */
+export const cleanupTestData = mutation({
+  args: {
+    userId: v.union(v.id("users"), v.string()),
+  },
+  handler: async (ctx, args) => {
+    console.log('🧹 Cleaning up test data for user:', args.userId);
+    
+    // Find test experiences
+    const testExperiences = await ctx.db
+      .query("experiences")
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .filter((q) => q.eq(q.field("description"), "Test experience for proactive conversation testing"))
+      .collect();
+    
+    // Find related follow-ups
+    const testFollowUps = await ctx.db
+      .query("scheduledFollowUps")
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .collect();
+    
+    const followUpsToDelete = testFollowUps.filter(followUp => 
+      testExperiences.some(exp => exp._id === followUp.experienceId)
+    );
+    
+    // Delete follow-ups first
+    for (const followUp of followUpsToDelete) {
+      await ctx.db.delete(followUp._id);
+    }
+    
+    // Delete experiences
+    for (const experience of testExperiences) {
+      await ctx.db.delete(experience._id);
+    }
+    
+    console.log('✅ Cleanup completed:', {
+      experiencesDeleted: testExperiences.length,
+      followUpsDeleted: followUpsToDelete.length,
+    });
+    
+    return {
+      success: true,
+      deleted: {
+        experiences: testExperiences.length,
+        followUps: followUpsToDelete.length,
+      },
+    };
+  },
+});

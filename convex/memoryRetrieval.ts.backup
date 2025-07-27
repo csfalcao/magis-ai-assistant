@@ -1,0 +1,296 @@
+import { v } from "convex/values";
+import { action, query } from "./_generated/server";
+import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+
+/**
+ * Memory Retrieval System for RAG Integration
+ * Enables AI responses to access and use stored memories naturally
+ */
+
+/**
+ * Search memories using semantic vector similarity
+ * This is the core function that connects stored memories to AI responses
+ */
+export const searchMemoriesByQuery = action({
+  args: {
+    query: v.string(),
+    userId: v.union(v.id("users"), v.string()),
+    context: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    console.log('🔍 Searching memories for query:', args.query);
+    
+    const limit = args.limit || 5;
+    
+    try {
+      // Generate embedding for the search query
+      const queryEmbedding = await ctx.runAction(api.embeddings.generateQueryEmbedding, {
+        query: args.query,
+      });
+      
+      console.log('🔍 Generated query embedding, length:', queryEmbedding.length);
+      
+      // Get all active memories for the user
+      const allMemories = await ctx.runQuery(api.memoryRetrieval.getAllUserMemories, {
+        userId: args.userId,
+        context: args.context,
+      });
+      
+      console.log('🔍 Found', allMemories.length, 'total memories for user');
+      
+      if (allMemories.length === 0) {
+        return [];
+      }
+      
+      // Calculate similarity scores for memories with embeddings
+      const memoriesWithScores = [];
+      
+      for (const memory of allMemories) {
+        if (!memory.embedding || memory.embedding.length === 0) {
+          // Skip memories without embeddings
+          continue;
+        }
+        
+        try {
+          // Calculate cosine similarity
+          const similarity = await ctx.runAction(api.embeddings.calculateSimilarity, {
+            embedding1: queryEmbedding,
+            embedding2: memory.embedding,
+          });
+          
+          memoriesWithScores.push({
+            ...memory,
+            similarity: similarity,
+          });
+        } catch (error) {
+          console.error('Error calculating similarity for memory:', memory._id, error);
+          continue;
+        }
+      }
+      
+      // Sort by similarity score (highest first) and take top results
+      const rankedMemories = memoriesWithScores
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, limit);
+      
+      console.log('🔍 Returning', rankedMemories.length, 'ranked memories');
+      
+      // Log top results for debugging
+      rankedMemories.forEach((memory: any, index: number) => {
+        console.log(`🔍 Rank ${index + 1}: ${memory.summary} (similarity: ${memory.similarity.toFixed(3)})`);
+      });
+      
+      return rankedMemories;
+      
+    } catch (error) {
+      console.error('❌ Memory search failed:', error);
+      
+      // Fallback to simple text-based search if vector search fails
+      console.log('🔍 Falling back to text-based search');
+      
+      const fallbackMemories = await ctx.runQuery(api.memoryRetrieval.searchMemoriesByText, {
+        userId: args.userId,
+        query: args.query,
+        context: args.context,
+        limit,
+      });
+      
+      return fallbackMemories.map((memory: any) => ({
+        ...memory,
+        similarity: 0.5, // Default similarity for text-based search
+      }));
+    }
+  },
+});
+
+/**
+ * Query to get all active memories for a user
+ */
+export const getAllUserMemories = query({
+  args: {
+    userId: v.union(v.id("users"), v.string()),
+    context: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    let query = ctx.db
+      .query("memories")
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .filter((q) => q.eq(q.field("isActive"), true));
+    
+    // Filter by context if provided
+    if (args.context) {
+      query = query.filter((q) => q.eq(q.field("context"), args.context));
+    }
+    
+    return await query
+      .order("desc") // Most recent first
+      .take(100); // Limit to 100 most recent memories for performance
+  },
+});
+
+/**
+ * Fallback text-based search when vector search fails
+ */
+export const searchMemoriesByText = query({
+  args: {
+    userId: v.union(v.id("users"), v.string()),
+    query: v.string(),
+    context: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit || 5;
+    const searchTerms = args.query.toLowerCase().split(' ');
+    
+    let query = ctx.db
+      .query("memories")
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .filter((q) => q.eq(q.field("isActive"), true));
+    
+    // Filter by context if provided
+    if (args.context) {
+      query = query.filter((q) => q.eq(q.field("context"), args.context));
+    }
+    
+    const allMemories = await query.collect();
+    
+    // Score memories based on text matches
+    const scoredMemories = allMemories
+      .map(memory => {
+        let score = 0;
+        const memoryText = (memory.content + ' ' + memory.summary + ' ' + (memory.entities?.join(' ') || '') + ' ' + (memory.keywords?.join(' ') || '')).toLowerCase();
+        
+        // Count keyword matches
+        for (const term of searchTerms) {
+          if (term.length > 2) { // Skip very short terms
+            const matches = (memoryText.match(new RegExp(term, 'g')) || []).length;
+            score += matches;
+          }
+        }
+        
+        return {
+          ...memory,
+          textScore: score,
+        };
+      })
+      .filter(memory => memory.textScore > 0) // Only include memories with matches
+      .sort((a, b) => b.textScore - a.textScore) // Sort by score
+      .slice(0, limit);
+    
+    return scoredMemories;
+  },
+});
+
+/**
+ * Get recent memories for context (used when no specific query)
+ */
+export const getRecentMemories = query({
+  args: {
+    userId: v.union(v.id("users"), v.string()),
+    context: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit || 3;
+    
+    let query = ctx.db
+      .query("memories")
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .filter((q) => q.eq(q.field("isActive"), true));
+    
+    // Filter by context if provided
+    if (args.context) {
+      query = query.filter((q) => q.eq(q.field("context"), args.context));
+    }
+    
+    return await query
+      .order("desc") // Most recent first
+      .take(limit);
+  },
+});
+
+/**
+ * Get memories by type (tasks, experiences, facts, etc.)
+ */
+export const getMemoriesByType = query({
+  args: {
+    userId: v.union(v.id("users"), v.string()),
+    memoryType: v.string(),
+    context: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit || 10;
+    
+    let query = ctx.db
+      .query("memories")
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .filter((q) => q.eq(q.field("memoryType"), args.memoryType))
+      .filter((q) => q.eq(q.field("isActive"), true));
+    
+    // Filter by context if provided
+    if (args.context) {
+      query = query.filter((q) => q.eq(q.field("context"), args.context));
+    }
+    
+    return await query
+      .order("desc") // Most recent first
+      .take(limit);
+  },
+});
+
+/**
+ * Get related tasks and experiences for a memory
+ * This enhances memory context with actionable items
+ */
+export const getRelatedTasksAndExperiences = query({
+  args: {
+    userId: v.union(v.id("users"), v.string()),
+    memoryKeywords: v.array(v.string()),
+    context: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const results: {
+      tasks: any[];
+      experiences: any[];
+    } = {
+      tasks: [],
+      experiences: [],
+    };
+    
+    // Find related tasks
+    const tasks = await ctx.db
+      .query("tasks")
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .filter((q) => q.eq(q.field("completed"), false))
+      .collect();
+    
+    // Find related experiences
+    const experiences = await ctx.db
+      .query("experiences")
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .filter((q) => q.eq(q.field("status"), "scheduled"))
+      .collect();
+    
+    // Filter by keyword matches
+    const keywords = args.memoryKeywords.map(k => k.toLowerCase());
+    
+    results.tasks = tasks.filter(task => 
+      keywords.some(keyword => 
+        task.title.toLowerCase().includes(keyword) ||
+        task.description?.toLowerCase().includes(keyword)
+      )
+    ).slice(0, 3);
+    
+    results.experiences = experiences.filter(exp => 
+      keywords.some(keyword => 
+        exp.title.toLowerCase().includes(keyword) ||
+        exp.description?.toLowerCase().includes(keyword)
+      )
+    ).slice(0, 3);
+    
+    return results;
+  },
+});

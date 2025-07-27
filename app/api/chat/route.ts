@@ -346,7 +346,8 @@ async function processMessageForProactive(messageContent: string, context: strin
     const experienceId = await convex.action(api.experiences.detectAndCreateExperience, {
       messageContent,
       conversationId: conversationId as any, // Cast to Convex ID type
-      context
+      context,
+      userId: "jh78atbrf5hkhz5bq8pqvzjyf57k3f2a", // Default user for development
     });
 
     if (experienceId) {
@@ -364,30 +365,40 @@ async function processMessageForProactive(messageContent: string, context: strin
   }
 }
 
-// Create memory from message content
+// Create memory from message content using Life OS extraction
 async function createMemoryFromMessage(content: string, context: string, conversationId?: string) {
   try {
     // Skip memory creation if no valid conversationId
     if (!conversationId) {
-      console.log('⏭️ Skipping memory creation - no valid conversationId');
+      console.log('⏭️ Life OS: Skipping memory creation - no valid conversationId');
       return null;
     }
 
-    // Simple memory creation - in production this would use the full memory pipeline
-    const memoryId = await convex.action(api.memory.createMemoryFromMessage, {
-      messageId: 'temp-message-id' as any, // Cast to Convex ID type
-      conversationId: conversationId as any, // Cast to Convex ID type
+    console.log('🧠 Life OS: Creating memory with WHO/WHAT/WHEN/WHERE extraction');
+
+    // Use the sophisticated Life OS memory extraction system
+    const extractionResult = await convex.action(api.memoryExtraction.extractEntitiesFromContent, {
       content: content,
-      context: context
+      context: context,
+      messageId: 'temp-message-id', // Will be replaced with real message ID
+      conversationId: conversationId,
+      userId: "jh78atbrf5hkhz5bq8pqvzjyf57k3f2a", // Default user for development
     });
 
-    if (memoryId) {
-      console.log('✅ Memory created:', memoryId);
+    if (extractionResult.success) {
+      console.log('✅ Life OS: Memory created with entities:', {
+        who: extractionResult.extractedEntities?.who.length || 0,
+        what: extractionResult.extractedEntities?.what.length || 0,
+        when: extractionResult.extractedEntities?.when.length || 0,
+        where: extractionResult.extractedEntities?.where.length || 0
+      });
+      return extractionResult.memoryId;
+    } else {
+      console.error('❌ Life OS: Memory extraction failed:', extractionResult.error);
+      return null;
     }
-
-    return memoryId;
   } catch (error) {
-    console.error('Memory creation error:', error);
+    console.error('❌ Life OS: Memory creation error:', error);
     return null;
   }
 }

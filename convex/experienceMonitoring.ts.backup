@@ -1,0 +1,403 @@
+import { v } from "convex/values";
+import { action, mutation, query } from "./_generated/server";
+import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+
+/**
+ * Experience Monitoring System
+ * Automatically detects when experiences are completed and triggers proactive follow-ups
+ * 
+ * Detection Methods:
+ * 1. Time-based: Experience passes its scheduled time + estimated duration
+ * 2. User-reported: User explicitly mentions completion in conversation
+ * 3. Context-based: New experiences that might indicate completion of old ones
+ */
+
+/**
+ * Automatic experience completion detection based on scheduled time
+ */
+export const detectTimeBasedCompletions = action({
+  args: {
+    checkLimit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    console.log('🕐 Checking for time-based experience completions...');
+    
+    const limit = args.checkLimit || 20;
+    const now = Date.now();
+    
+    // Get experiences that should have completed by now
+    const candidateExperiences = await ctx.runQuery(api.experienceMonitoring.getScheduledExperiences, {
+      limit,
+    });
+    
+    console.log('📋 Found', candidateExperiences.length, 'candidate experiences to check');
+    
+    const completions = [];
+    
+    for (const experience of candidateExperiences) {
+      if (!experience.scheduledAt) continue;
+      
+      // Calculate expected completion time
+      const estimatedDuration = getEstimatedDuration(experience.experienceType);
+      const expectedCompletionTime = experience.scheduledAt + estimatedDuration;
+      
+      // Check if experience should be completed by now
+      if (now >= expectedCompletionTime) {
+        console.log('✅ Experience should be completed:', experience.title, 
+          'scheduled:', new Date(experience.scheduledAt), 
+          'expected completion:', new Date(expectedCompletionTime));
+        
+        const completionResult = await ctx.runMutation(api.experienceMonitoring.markExperienceCompleted, {
+          experienceId: experience._id,
+          completionMethod: "time_based",
+          completedAt: expectedCompletionTime,
+        });
+        
+        if (completionResult.success) {
+          // Trigger proactive follow-up
+          const followUpResult = await ctx.runAction(api.proactiveConversations.processExperienceCompletion, {
+            experienceId: experience._id,
+            completionTime: expectedCompletionTime,
+          });
+          
+          completions.push({
+            experienceId: experience._id,
+            title: experience.title,
+            completionMethod: "time_based",
+            followUpScheduled: followUpResult.success,
+            followUpTiming: followUpResult.timing,
+          });
+        }
+      }
+    }
+    
+    console.log('✅ Processed', completions.length, 'experience completions');
+    return completions;
+  },
+});
+
+/**
+ * Get estimated duration for different experience types (in milliseconds)
+ */
+function getEstimatedDuration(experienceType: string): number {
+  const durations: Record<string, number> = {
+    health: 60 * 60 * 1000, // 1 hour for medical appointments
+    meal: 90 * 60 * 1000, // 1.5 hours for meals
+    meeting: 60 * 60 * 1000, // 1 hour for meetings
+    travel: 4 * 60 * 60 * 1000, // 4 hours for travel (very variable)
+    entertainment: 3 * 60 * 60 * 1000, // 3 hours for entertainment
+    other: 2 * 60 * 60 * 1000, // 2 hours default
+  };
+  
+  return durations[experienceType] || durations.other;
+}
+
+/**
+ * Query to get scheduled experiences that might be completed
+ */
+export const getScheduledExperiences = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit || 20;
+    const now = Date.now();
+    
+    // Get experiences scheduled in the past but still marked as scheduled
+    return await ctx.db
+      .query("experiences")
+      .filter((q) => q.eq(q.field("status"), "scheduled"))
+      .filter((q) => q.neq(q.field("scheduledAt"), undefined))
+      .order("asc")
+      .take(limit);
+  },
+});
+
+/**
+ * Mutation to mark an experience as completed
+ */
+export const markExperienceCompleted = mutation({
+  args: {
+    experienceId: v.id("experiences"),
+    completionMethod: v.string(), // "time_based", "user_reported", "context_inferred"
+    completedAt: v.optional(v.number()),
+    outcome: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    console.log('✅ Marking experience as completed:', args.experienceId, 'method:', args.completionMethod);
+    
+    const experience = await ctx.db.get(args.experienceId);
+    if (!experience) {
+      return { success: false, error: "Experience not found" };
+    }
+    
+    if (experience.status === "completed") {
+      return { success: false, reason: "Already completed" };
+    }
+    
+    const completedAt = args.completedAt || Date.now();
+    
+    await ctx.db.patch(args.experienceId, {
+      status: "completed",
+      actualEndAt: completedAt,
+      outcome: args.outcome,
+      updatedAt: Date.now(),
+    });
+    
+    console.log('✅ Experience marked as completed');
+    
+    return {
+      success: true,
+      completedAt,
+      method: args.completionMethod,
+    };
+  },
+});
+
+/**
+ * Detect experience completion from user messages
+ * This analyzes recent messages to see if user mentioned completing an experience
+ */
+export const detectCompletionFromMessages = action({
+  args: {
+    userId: v.union(v.id("users"), v.string()),
+    messageContent: v.string(),
+    conversationId: v.id("conversations"),
+  },
+  handler: async (ctx, args) => {
+    console.log('🔍 Checking message for experience completion indicators:', args.messageContent.substring(0, 50) + '...');
+    
+    // Get recent experiences for this user that might be referenced
+    const recentExperiences = await ctx.runQuery(api.experienceMonitoring.getRecentUserExperiences, {
+      userId: args.userId,
+      days: 7, // Look back 7 days
+    });
+    
+    console.log('📋 Found', recentExperiences.length, 'recent experiences to check against');
+    
+    if (recentExperiences.length === 0) {
+      return { completionsDetected: [] };
+    }
+    
+    // Use AI to analyze if the message indicates completion of any experiences
+    const analysisPrompt = createCompletionAnalysisPrompt(args.messageContent, recentExperiences);
+    
+    try {
+      const aiAnalysis = await ctx.runAction(api.ai.extractStructuredData, {
+        prompt: analysisPrompt,
+        userId: args.userId,
+      });
+      
+      console.log('🤖 AI analysis result:', aiAnalysis.content?.substring(0, 200) + '...');
+      
+      let analysisResult;
+      try {
+        // Clean and parse AI response
+        let cleanContent = aiAnalysis.content;
+        if (cleanContent.includes('```json')) {
+          cleanContent = cleanContent.replace(/```json\\s*/g, '').replace(/```\\s*/g, '');
+        }
+        
+        analysisResult = JSON.parse(cleanContent);
+      } catch (parseError) {
+        console.error('❌ Failed to parse AI analysis:', parseError);
+        return { completionsDetected: [], error: "Parse error" };
+      }
+      
+      const completions = [];
+      
+      // Process detected completions
+      if (analysisResult.completions && Array.isArray(analysisResult.completions)) {
+        for (const completion of analysisResult.completions) {
+          const experienceIndex = completion.experienceIndex - 1; // Convert to 0-based
+          if (experienceIndex >= 0 && experienceIndex < recentExperiences.length) {
+            const experience = recentExperiences[experienceIndex];
+            
+            console.log('✅ Detected completion for:', experience.title, 'confidence:', completion.confidence);
+            
+            // Only process high-confidence detections
+            if (completion.confidence >= 0.7) {
+              const completionResult = await ctx.runMutation(api.experienceMonitoring.markExperienceCompleted, {
+                experienceId: experience._id,
+                completionMethod: "user_reported",
+                completedAt: Date.now(),
+                outcome: completion.outcome || "completed",
+              });
+              
+              if (completionResult.success) {
+                // Trigger proactive follow-up
+                const followUpResult = await ctx.runAction(api.proactiveConversations.processExperienceCompletion, {
+                  experienceId: experience._id,
+                  completionTime: Date.now(),
+                });
+                
+                completions.push({
+                  experienceId: experience._id,
+                  title: experience.title,
+                  confidence: completion.confidence,
+                  outcome: completion.outcome,
+                  followUpScheduled: followUpResult.success,
+                });
+              }
+            }
+          }
+        }
+      }
+      
+      console.log('✅ Processed', completions.length, 'message-based completions');
+      return { completionsDetected: completions };
+      
+    } catch (error) {
+      console.error('❌ Experience completion detection failed:', error);
+      return { completionsDetected: [], error: (error as Error).message };
+    }
+  },
+});
+
+/**
+ * Create AI prompt for analyzing message content for experience completions
+ */
+function createCompletionAnalysisPrompt(messageContent: string, experiences: any[]): string {
+  const experiencesList = experiences
+    .map((exp, index) => `${index + 1}. "${exp.title}" (${exp.experienceType}) - scheduled for ${exp.scheduledAt ? new Date(exp.scheduledAt).toLocaleDateString() : "unknown date"}`)
+    .join('\\n');
+  
+  return `
+Analyze this user message to detect if they are indicating completion of any recent experiences:
+
+USER MESSAGE: "${messageContent}"
+
+RECENT EXPERIENCES:
+${experiencesList}
+
+Look for indicators such as:
+- Past tense language ("went to", "had my", "finished", "completed")
+- Outcome descriptions ("it went well", "was great", "didn't go as planned")
+- Specific references to the experience title or type
+- Time indicators suggesting the experience happened ("yesterday", "this morning", "just got back")
+
+For each experience that seems to be referenced as completed, determine:
+1. Confidence (0.0-1.0) that the user is indicating completion
+2. Outcome description if mentioned ("positive", "negative", "neutral", or specific details)
+3. Any emotional context ("happy", "disappointed", "relieved", etc.)
+
+Return JSON format:
+{
+  "completions": [
+    {
+      "experienceIndex": 1,
+      "confidence": 0.9,
+      "outcome": "positive",
+      "evidence": "User said 'just got back from the dentist, went really well'",
+      "emotionalContext": "relieved"
+    }
+  ]
+}
+
+Only include completions with confidence >= 0.5. If no completions detected, return empty array.`;
+}
+
+/**
+ * Query to get recent experiences for a user
+ */
+export const getRecentUserExperiences = query({
+  args: {
+    userId: v.union(v.id("users"), v.string()),
+    days: v.optional(v.number()),
+    status: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const days = args.days || 7;
+    const cutoffTime = Date.now() - (days * 24 * 60 * 60 * 1000);
+    
+    let query = ctx.db
+      .query("experiences")
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .filter((q) => q.gte(q.field("createdAt"), cutoffTime));
+    
+    if (args.status) {
+      query = query.filter((q) => q.eq(q.field("status"), args.status));
+    }
+    
+    return await query
+      .order("desc")
+      .take(10); // Limit to 10 most recent
+  },
+});
+
+/**
+ * Action to process all pending experience monitoring tasks
+ * This would be called by a background scheduler
+ */
+export const processExperienceMonitoring = action({
+  args: {},
+  handler: async (ctx) => {
+    console.log('🔄 Processing experience monitoring tasks...');
+    
+    // 1. Check for time-based completions
+    const timeBasedCompletions = await ctx.runAction(api.experienceMonitoring.detectTimeBasedCompletions, {
+      checkLimit: 20,
+    });
+    
+    console.log('⏰ Time-based completions:', timeBasedCompletions.length);
+    
+    // 2. Additional monitoring tasks could be added here:
+    // - Check for overdue experiences
+    // - Detect cancelled experiences
+    // - Update experience importance based on user behavior
+    
+    const results = {
+      timeBasedCompletions: timeBasedCompletions.length,
+      totalProcessed: timeBasedCompletions.length,
+      timestamp: Date.now(),
+    };
+    
+    console.log('✅ Experience monitoring completed:', results);
+    return results;
+  },
+});
+
+/**
+ * Query to get monitoring statistics
+ */
+export const getMonitoringStats = query({
+  args: {
+    userId: v.optional(v.union(v.id("users"), v.string())),
+    timeRange: v.optional(v.number()), // days
+  },
+  handler: async (ctx, args) => {
+    const timeRange = args.timeRange || 30;
+    const cutoffTime = Date.now() - (timeRange * 24 * 60 * 60 * 1000);
+    
+    let query = ctx.db
+      .query("experiences")
+      .filter((q) => q.gte(q.field("createdAt"), cutoffTime));
+    
+    if (args.userId) {
+      query = query.filter((q) => q.eq(q.field("userId"), args.userId));
+    }
+    
+    const allExperiences = await query.collect();
+    
+    const stats = {
+      total: allExperiences.length,
+      scheduled: allExperiences.filter(e => e.status === "scheduled").length,
+      completed: allExperiences.filter(e => e.status === "completed").length,
+      cancelled: allExperiences.filter(e => e.status === "cancelled").length,
+      
+      // Completion detection methods
+      timeBasedCompletions: 0, // Would need to track this in metadata
+      userReportedCompletions: 0,
+      contextInferredCompletions: 0,
+      
+      // Follow-up statistics
+      followUpsEnabled: allExperiences.filter(e => e.followUpEnabled).length,
+      followUpsCompleted: allExperiences.filter(e => e.followUpCompleted).length,
+      
+      avgFollowUpCount: allExperiences.reduce((sum, e) => sum + e.followUpCount, 0) / Math.max(allExperiences.length, 1),
+    };
+    
+    return stats;
+  },
+});

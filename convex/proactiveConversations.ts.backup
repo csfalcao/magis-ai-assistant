@@ -1,0 +1,628 @@
+import { v } from "convex/values";
+import { action, mutation, query } from "./_generated/server";
+import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+
+/**
+ * Proactive Conversation Engine for MAGIS
+ * Implements intelligent follow-up conversations that feel natural and build relationships
+ * 
+ * Core Philosophy:
+ * - Follow-ups should feel like a caring friend checking in, not a survey
+ * - Timing is crucial - too early feels pushy, too late feels irrelevant
+ * - Learn from user responses to improve future proactive conversations
+ */
+
+// Types for proactive conversation timing
+interface FollowUpTiming {
+  experienceType: string;
+  baseTiming: number; // hours after completion
+  contextMultiplier: number; // adjust based on context
+  importanceBonus: number; // adjust based on experience importance
+}
+
+/**
+ * Core proactive conversation engine - monitors experiences and triggers follow-ups
+ */
+export const processExperienceCompletion = action({
+  args: {
+    experienceId: v.id("experiences"),
+    completionTime: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    console.log('🎯 Processing experience completion:', args.experienceId);
+    
+    // Get the experience details
+    const experience = await ctx.runQuery(api.proactiveConversations.getExperience, {
+      experienceId: args.experienceId,
+    });
+    
+    if (!experience) {
+      console.log('❌ Experience not found:', args.experienceId);
+      return { success: false, error: "Experience not found" };
+    }
+    
+    if (!experience.followUpEnabled) {
+      console.log('⏭️ Follow-up disabled for experience:', experience.title);
+      return { success: false, reason: "Follow-up disabled" };
+    }
+    
+    // Calculate optimal follow-up timing
+    const timing = calculateFollowUpTiming(experience);
+    const completionTime = args.completionTime || Date.now();
+    const scheduledAt = completionTime + (timing.totalHours * 60 * 60 * 1000);
+    
+    console.log('⏰ Scheduling follow-up for', new Date(scheduledAt), 
+      `(${timing.totalHours} hours after completion)`);
+    
+    // Determine follow-up type based on experience
+    const followUpType = determineFollowUpType(experience);
+    
+    // Schedule the follow-up
+    const followUpId = await ctx.runMutation(api.proactiveConversations.scheduleFollowUp, {
+      experienceId: args.experienceId,
+      userId: experience.userId,
+      scheduledAt,
+      followUpType,
+      timing,
+    });
+    
+    console.log('✅ Follow-up scheduled:', followUpId);
+    
+    return {
+      success: true,
+      followUpId,
+      scheduledAt,
+      timing: timing.totalHours,
+    };
+  },
+});
+
+/**
+ * Calculate optimal timing for follow-up based on experience type and context
+ */
+function calculateFollowUpTiming(experience: any): FollowUpTiming & { totalHours: number; reasoning: string } {
+  // Base timing by experience type (in hours)
+  const baseTimings: Record<string, number> = {
+    health: 4,      // Medical appointments - check in same day
+    meal: 24,       // Restaurant experiences - next day reflection  
+    meeting: 0.5,   // Work meetings - quick follow-up
+    travel: 24,     // Travel - next day after settling
+    entertainment: 12, // Events - next morning
+    other: 6,       // Default - reasonable window
+  };
+  
+  const baseTiming = baseTimings[experience.experienceType] || baseTimings.other;
+  
+  // Context multipliers
+  let contextMultiplier = 1.0;
+  if (experience.context?.includes('first time')) contextMultiplier = 0.8; // Follow up sooner for new experiences
+  if (experience.context?.includes('important')) contextMultiplier = 0.7; // Sooner for important things
+  if (experience.context?.includes('routine')) contextMultiplier = 1.5;   // Later for routine things
+  
+  // Importance bonus (higher importance = sooner follow-up)
+  const importanceBonus = Math.max(0, (10 - (experience.importance || 5)) * 0.2);
+  
+  // Final calculation
+  const totalHours = Math.max(0.25, baseTiming * contextMultiplier - importanceBonus);
+  
+  const reasoning = `Base: ${baseTiming}h, Context: ${contextMultiplier}x, Importance: -${importanceBonus}h = ${totalHours.toFixed(1)}h`;
+  
+  return {
+    experienceType: experience.experienceType,
+    baseTiming,
+    contextMultiplier,
+    importanceBonus,
+    totalHours: Math.round(totalHours * 10) / 10, // Round to 1 decimal
+    reasoning,
+  };
+}
+
+/**
+ * Determine the type of follow-up conversation based on experience
+ */
+function determineFollowUpType(experience: any): string {
+  if (experience.experienceType === "health") {
+    return "health_check_in";
+  } else if (experience.experienceType === "meal") {
+    return "dining_feedback";
+  } else if (experience.experienceType === "meeting") {
+    return "work_meeting_follow_up";
+  } else if (experience.experienceType === "travel") {
+    return "travel_experience";
+  } else if (experience.experienceType === "entertainment") {
+    return "entertainment_feedback";
+  } else {
+    return "general_check_in";
+  }
+}
+
+/**
+ * Query to get experience details for follow-up processing
+ */
+export const getExperience = query({
+  args: {
+    experienceId: v.id("experiences"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.experienceId);
+  },
+});
+
+/**
+ * Mutation to schedule a follow-up conversation
+ */
+export const scheduleFollowUp = mutation({
+  args: {
+    experienceId: v.id("experiences"),
+    userId: v.union(v.id("users"), v.string()),
+    scheduledAt: v.number(),
+    followUpType: v.string(),
+    timing: v.object({
+      experienceType: v.string(),
+      baseTiming: v.number(),
+      contextMultiplier: v.number(),
+      importanceBonus: v.number(),
+      totalHours: v.number(),
+      reasoning: v.string(),
+    }),
+  },
+  handler: async (ctx, args) => {
+    console.log('📅 Scheduling follow-up for experience:', args.experienceId);
+    
+    const followUpId = await ctx.db.insert("scheduledFollowUps", {
+      experienceId: args.experienceId,
+      userId: args.userId,
+      scheduledAt: args.scheduledAt,
+      followUpType: args.followUpType,
+      timing: args.timing,
+      status: "scheduled",
+      attempts: 0,
+      createdAt: Date.now(),
+    });
+    
+    // Update the experience to track that a follow-up was scheduled
+    await ctx.db.patch(args.experienceId, {
+      followUpCount: (await ctx.db.get(args.experienceId))?.followUpCount ? 
+        (await ctx.db.get(args.experienceId))!.followUpCount + 1 : 1,
+      lastFollowUpAt: args.scheduledAt,
+    });
+    
+    console.log('✅ Follow-up scheduled with ID:', followUpId);
+    return followUpId;
+  },
+});
+
+/**
+ * Action to generate natural follow-up messages using AI
+ */
+export const generateFollowUpMessage = action({
+  args: {
+    followUpId: v.id("scheduledFollowUps"),
+  },
+  handler: async (ctx, args) => {
+    console.log('🤖 Generating follow-up message for:', args.followUpId);
+    
+    // Get follow-up details
+    const followUp = await ctx.runQuery(api.proactiveConversations.getScheduledFollowUp, {
+      followUpId: args.followUpId,
+    });
+    
+    if (!followUp) {
+      throw new Error("Follow-up not found");
+    }
+    
+    // Get experience and user context
+    const experience = await ctx.runQuery(api.proactiveConversations.getExperience, {
+      experienceId: followUp.experienceId,
+    });
+    
+    if (!experience) {
+      throw new Error("Experience not found");
+    }
+    
+    // Get user profile for personalization
+    const userProfile = await ctx.runQuery(api.users.getUserProfile, {
+      userId: followUp.userId,
+    });
+    
+    // Generate personalized follow-up message
+    const messagePrompt = createFollowUpPrompt(experience, followUp, userProfile);
+    
+    console.log('🤖 Generating AI follow-up with prompt length:', messagePrompt.length);
+    
+    const aiResponse = await ctx.runAction(api.ai.generateFollowUpMessage, {
+      prompt: messagePrompt,
+      userId: followUp.userId,
+      experienceType: experience.experienceType,
+    });
+    
+    console.log('🤖 Generated follow-up message:', aiResponse.message?.substring(0, 100) + '...');
+    
+    return {
+      message: aiResponse.message,
+      tone: aiResponse.tone || "caring",
+      timing: followUp.timing,
+    };
+  },
+});
+
+/**
+ * Create a natural, personalized prompt for AI follow-up generation
+ */
+function createFollowUpPrompt(experience: any, followUp: any, userProfile: any): string {
+  const contextInfo = {
+    health: "a healthcare appointment or medical procedure",
+    meal: "a dining experience or meal", 
+    meeting: "a meeting or work event",
+    travel: "a trip or travel experience",
+    entertainment: "an entertainment event or activity",
+    other: "an experience or event",
+  };
+  
+  const experienceDescription = contextInfo[experience.experienceType as keyof typeof contextInfo] || contextInfo.other;
+  
+  // Get user's preferred communication style
+  const communicationStyle = userProfile?.personalPreferences?.communication?.preferredStyle || "friendly";
+  const responseLength = userProfile?.personalPreferences?.communication?.responseLength || "brief";
+  const useHumor = userProfile?.personalPreferences?.communication?.humor;
+  
+  const prompt = `
+You are MAGIS, a caring AI assistant checking in with a user after ${experienceDescription}.
+
+Experience Details:
+- Title: "${experience.title}"
+- Type: ${experience.experienceType}
+- Context: ${experience.context}
+- Importance: ${experience.importance}/10
+- Location: ${experience.location || "not specified"}
+- When: ${experience.scheduledAt ? new Date(experience.scheduledAt).toLocaleDateString() : "recently"}
+
+User Communication Preferences:
+- Style: ${communicationStyle}
+- Length: ${responseLength}
+- Humor: ${useHumor ? "appreciated" : "keep professional"}
+
+Follow-up Type: ${followUp.followUpType}
+Timing: Following up ${followUp.timing.totalHours} hours after the experience
+
+Generate a natural, caring follow-up message that:
+
+1. **Feels genuine**: Like a thoughtful friend checking in, not a survey or bot
+2. **Shows interest**: Demonstrate that you remember and care about their experience
+3. **Invites sharing**: Encourage them to share how it went, but don't pressure
+4. **Offers help**: Be ready to assist with next steps if needed
+5. **Matches their style**: Adapt to their preferred communication style
+
+Message Guidelines:
+- ${responseLength === "brief" ? "Keep it short and sweet (1-2 sentences max)" : responseLength === "detailed" ? "Can be more comprehensive but still conversational" : "Moderate length, warm but concise"}
+- ${communicationStyle === "formal" ? "Maintain professional politeness" : communicationStyle === "casual" ? "Be relaxed and informal" : "Be friendly and approachable"}
+- ${useHumor ? "Light humor is welcome if appropriate" : "Keep tone caring but professional"}
+- Don't ask multiple questions at once
+- Don't mention this is an "automated follow-up"
+- Focus on their experience, not your capabilities
+
+Examples of good follow-up messages:
+- "Hope your dentist appointment went smoothly! How are you feeling?"
+- "How was dinner at Luigi's? Did you try anything new?"
+- "Just thinking about your meeting today - how did it go?"
+
+Generate a natural follow-up message now:`;
+  
+  return prompt;
+}
+
+/**
+ * Query to get scheduled follow-up details
+ */
+export const getScheduledFollowUp = query({
+  args: {
+    followUpId: v.id("scheduledFollowUps"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.followUpId);
+  },
+});
+
+/**
+ * Action to deliver a proactive follow-up message to the user
+ */
+export const deliverFollowUpMessage = action({
+  args: {
+    followUpId: v.id("scheduledFollowUps"),
+  },
+  handler: async (ctx, args) => {
+    console.log('📤 Delivering follow-up message:', args.followUpId);
+    
+    // Get follow-up details
+    const followUp = await ctx.runQuery(api.proactiveConversations.getScheduledFollowUp, {
+      followUpId: args.followUpId,
+    });
+    
+    if (!followUp || followUp.status !== "scheduled") {
+      console.log('❌ Follow-up not found or not scheduled:', followUp?.status);
+      return { success: false, error: "Follow-up not available" };
+    }
+    
+    // Check if it's time to deliver
+    if (Date.now() < followUp.scheduledAt) {
+      console.log('⏰ Too early to deliver follow-up, scheduled for:', new Date(followUp.scheduledAt));
+      return { success: false, reason: "Not yet time" };
+    }
+    
+    try {
+      // Generate the follow-up message
+      const messageContent = await ctx.runAction(api.proactiveConversations.generateFollowUpMessage, {
+        followUpId: args.followUpId,
+      });
+      
+      // Get or create active conversation for the user
+      const activeConversation = await ctx.runQuery(api.conversations.getActiveConversation, {
+        userId: followUp.userId,
+        context: "personal", // Default to personal for proactive conversations
+      });
+      
+      let conversationId = activeConversation?._id;
+      
+      // Create new conversation if none exists
+      if (!conversationId) {
+        conversationId = await ctx.runMutation(api.conversations.create, {
+          title: "MAGIS Conversation",
+          context: "personal",
+        });
+      }
+      
+      // Send the proactive message
+      const messageId = await ctx.runMutation(api.conversations.addMessage, {
+        conversationId,
+        content: messageContent.message,
+        role: "assistant",
+        metadata: {
+          provider: "magis",
+          inputMethod: "proactive",
+          proactiveType: followUp.followUpType,
+          experienceId: followUp.experienceId.toString(),
+          processingTime: Date.now(),
+        },
+      });
+      
+      // Mark follow-up as delivered
+      await ctx.runMutation(api.proactiveConversations.markFollowUpDelivered, {
+        followUpId: args.followUpId,
+        messageId,
+        conversationId,
+      });
+      
+      console.log('✅ Follow-up message delivered:', messageId);
+      
+      return {
+        success: true,
+        messageId,
+        conversationId,
+        message: messageContent.message,
+      };
+    } catch (error) {
+      console.error('❌ Failed to deliver follow-up:', error);
+      
+      // Mark as failed and increment attempts
+      await ctx.runMutation(api.proactiveConversations.markFollowUpFailed, {
+        followUpId: args.followUpId,
+        error: (error as Error).message,
+      });
+      
+      return {
+        success: false,
+        error: (error as Error).message,
+      };
+    }
+  },
+});
+
+/**
+ * Mutation to mark follow-up as delivered
+ */
+export const markFollowUpDelivered = mutation({
+  args: {
+    followUpId: v.id("scheduledFollowUps"),
+    messageId: v.id("messages"),
+    conversationId: v.id("conversations"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.followUpId, {
+      status: "delivered",
+      deliveredAt: Date.now(),
+      messageId: args.messageId,
+      conversationId: args.conversationId,
+    });
+    
+    // Update experience follow-up status
+    const followUp = await ctx.db.get(args.followUpId);
+    if (followUp) {
+      await ctx.db.patch(followUp.experienceId, {
+        followUpCompleted: true,
+      });
+    }
+  },
+});
+
+/**
+ * Mutation to mark follow-up as failed
+ */
+export const markFollowUpFailed = mutation({
+  args: {
+    followUpId: v.id("scheduledFollowUps"),
+    error: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const followUp = await ctx.db.get(args.followUpId);
+    if (!followUp) return;
+    
+    const newAttempts = followUp.attempts + 1;
+    
+    // Mark as failed if too many attempts, otherwise retry later
+    if (newAttempts >= 3) {
+      await ctx.db.patch(args.followUpId, {
+        status: "failed",
+        attempts: newAttempts,
+        lastError: args.error,
+        failedAt: Date.now(),
+      });
+    } else {
+      // Retry in 1 hour
+      await ctx.db.patch(args.followUpId, {
+        attempts: newAttempts,
+        scheduledAt: Date.now() + (60 * 60 * 1000), // 1 hour from now
+        lastError: args.error,
+      });
+    }
+  },
+});
+
+/**
+ * Query to get pending follow-ups that need to be delivered
+ */
+export const getPendingFollowUps = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit || 10;
+    const now = Date.now();
+    
+    return await ctx.db
+      .query("scheduledFollowUps")
+      .filter((q) => q.eq(q.field("status"), "scheduled"))
+      .filter((q) => q.lte(q.field("scheduledAt"), now))
+      .order("asc")
+      .take(limit);
+  },
+});
+
+/**
+ * Action to process all pending follow-ups (called by background task)
+ */
+export const processPendingFollowUps = action({
+  args: {},
+  handler: async (ctx) => {
+    console.log('🔄 Processing pending follow-ups...');
+    
+    const pendingFollowUps = await ctx.runQuery(api.proactiveConversations.getPendingFollowUps, {
+      limit: 5, // Process 5 at a time to avoid overload
+    });
+    
+    console.log('📋 Found', pendingFollowUps.length, 'pending follow-ups');
+    
+    const results = [];
+    
+    for (const followUp of pendingFollowUps) {
+      try {
+        const result = await ctx.runAction(api.proactiveConversations.deliverFollowUpMessage, {
+          followUpId: followUp._id,
+        });
+        
+        results.push({
+          followUpId: followUp._id,
+          success: result.success,
+          result,
+        });
+        
+        // Add small delay between messages to avoid overwhelming users
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (error) {
+        console.error('❌ Failed to process follow-up:', followUp._id, error);
+        results.push({
+          followUpId: followUp._id,
+          success: false,
+          error: (error as Error).message,
+        });
+      }
+    }
+    
+    console.log('✅ Processed', results.length, 'follow-ups');
+    return results;
+  },
+});
+
+/**
+ * Query to get follow-up statistics for a user
+ */
+export const getFollowUpStats = query({
+  args: {
+    userId: v.union(v.id("users"), v.string()),
+    timeRange: v.optional(v.number()), // days to look back
+  },
+  handler: async (ctx, args) => {
+    const timeRange = args.timeRange || 30; // Default 30 days
+    const cutoffTime = Date.now() - (timeRange * 24 * 60 * 60 * 1000);
+    
+    const allFollowUps = await ctx.db
+      .query("scheduledFollowUps")
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .filter((q) => q.gte(q.field("createdAt"), cutoffTime))
+      .collect();
+    
+    const stats = {
+      total: allFollowUps.length,
+      delivered: allFollowUps.filter(f => f.status === "delivered").length,
+      scheduled: allFollowUps.filter(f => f.status === "scheduled").length,
+      failed: allFollowUps.filter(f => f.status === "failed").length,
+      avgResponseTime: 0, // TODO: Calculate based on user responses
+      successRate: 0,
+    };
+    
+    if (stats.total > 0) {
+      stats.successRate = stats.delivered / stats.total;
+    }
+    
+    return stats;
+  },
+});
+
+/**
+ * Query to get completed follow-ups for history view
+ */
+export const getCompletedFollowUps = query({
+  args: {
+    limit: v.optional(v.number()),
+    userId: v.optional(v.union(v.id("users"), v.string())),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit || 20;
+    
+    let query = ctx.db
+      .query("scheduledFollowUps")
+      .filter((q) => 
+        q.or(
+          q.eq(q.field("status"), "delivered"),
+          q.eq(q.field("status"), "failed")
+        )
+      )
+      .order("desc");
+    
+    if (args.userId) {
+      query = query.filter((q) => q.eq(q.field("userId"), args.userId));
+    }
+    
+    const completedFollowUps = await query.take(limit);
+    
+    // Enrich with experience titles for better display
+    const enrichedFollowUps = await Promise.all(
+      completedFollowUps.map(async (followUp) => {
+        try {
+          const experience = await ctx.db.get(followUp.experienceId);
+          return {
+            ...followUp,
+            experienceTitle: experience?.title || "Unknown Experience",
+          };
+        } catch {
+          return {
+            ...followUp,
+            experienceTitle: "Unknown Experience",
+          };
+        }
+      })
+    );
+    
+    return enrichedFollowUps;
+  },
+});

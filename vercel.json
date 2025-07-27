@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/background/process-proactive",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}
