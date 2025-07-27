@@ -5,8 +5,14 @@ import { anthropic as anthropicProvider } from '@ai-sdk/anthropic';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '@/convex/_generated/api';
 
-// Initialize Convex client
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+// Initialize Convex client with authentication support
+function getConvexClient(authToken?: string) {
+  const client = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+  if (authToken) {
+    client.setAuth(authToken);
+  }
+  return client;
+}
 
 // Basic tools for MAGIS
 const tools = [
@@ -224,6 +230,15 @@ function extractPreferencesFromMessage(content: string): any {
 
 export async function POST(req: Request) {
   try {
+    // Extract authentication token from headers
+    const authToken = req.headers.get('authorization')?.replace('Bearer ', '');
+    if (!authToken) {
+      return new Response('Authentication required', { status: 401 });
+    }
+
+    // Create authenticated Convex client
+    const convex = getConvexClient(authToken);
+
     const body = await req.json();
     const { messages, context = 'personal', aiProvider = 'openai', conversationId } = body;
 
@@ -256,7 +271,7 @@ export async function POST(req: Request) {
       // Process message for proactive triggers (experiences and contacts)
       try {
         // This will detect experiences and create contacts automatically
-        await processMessageForProactive(latestUserMessage, context, conversationId);
+        await processMessageForProactive(convex, latestUserMessage, context, conversationId);
       } catch (error) {
         console.error('Proactive processing failed:', error);
         // Continue anyway - proactive features are nice-to-have
@@ -334,7 +349,7 @@ Keep responses brief and practical unless detailed help is requested.`
 }
 
 // Process message for proactive triggers
-async function processMessageForProactive(messageContent: string, context: string, conversationId?: string) {
+async function processMessageForProactive(convex: ConvexHttpClient, messageContent: string, context: string, conversationId?: string) {
   try {
     // Skip proactive processing if no valid conversationId
     if (!conversationId) {
@@ -342,12 +357,11 @@ async function processMessageForProactive(messageContent: string, context: strin
       return { experienceCreated: false };
     }
 
-    // Create experience from message if detected
+    // Create experience from message if detected (no hardcoded userId - uses authenticated user)
     const experienceId = await convex.action(api.experiences.detectAndCreateExperience, {
       messageContent,
       conversationId: conversationId as any, // Cast to Convex ID type
       context,
-      userId: "jh78atbrf5hkhz5bq8pqvzjyf57k3f2a", // Default user for development
     });
 
     if (experienceId) {
@@ -355,7 +369,7 @@ async function processMessageForProactive(messageContent: string, context: strin
     }
 
     // Create memory from message (basic memory extraction)
-    await createMemoryFromMessage(messageContent, context, conversationId);
+    await createMemoryFromMessage(convex, messageContent, context, conversationId);
 
     return { experienceCreated: !!experienceId };
   } catch (error) {
@@ -366,7 +380,7 @@ async function processMessageForProactive(messageContent: string, context: strin
 }
 
 // Create memory from message content using Life OS extraction
-async function createMemoryFromMessage(content: string, context: string, conversationId?: string) {
+async function createMemoryFromMessage(convex: ConvexHttpClient, content: string, context: string, conversationId?: string) {
   try {
     // Skip memory creation if no valid conversationId
     if (!conversationId) {
@@ -376,13 +390,12 @@ async function createMemoryFromMessage(content: string, context: string, convers
 
     console.log('🧠 Life OS: Creating memory with WHO/WHAT/WHEN/WHERE extraction');
 
-    // Use the sophisticated Life OS memory extraction system
+    // Use the sophisticated Life OS memory extraction system (no hardcoded userId - uses authenticated user)
     const extractionResult = await convex.action(api.memoryExtraction.extractEntitiesFromContent, {
       content: content,
       context: context,
       messageId: 'temp-message-id', // Will be replaced with real message ID
       conversationId: conversationId,
-      userId: "jh78atbrf5hkhz5bq8pqvzjyf57k3f2a", // Default user for development
     });
 
     if (extractionResult.success) {

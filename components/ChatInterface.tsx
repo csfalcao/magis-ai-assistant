@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useQuery, useMutation } from "convex/react";
-import { useAuthActions } from "@convex-dev/auth/react";
+import { useQuery, useMutation, useConvexAuth } from "convex/react";
+import { useAuthActions, useAuthToken } from "@convex-dev/auth/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Send, LogOut, MessageSquare, Plus, Volume2, VolumeX } from "lucide-react";
@@ -29,6 +29,8 @@ function renderMarkdown(text: string) {
 
 export function ChatInterface() {
   const { signOut } = useAuthActions();
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  const authToken = useAuthToken();
   const [currentConversationId, setCurrentConversationId] = useState<Id<"conversations"> | null>(null);
   const [currentContext, setCurrentContext] = useState<'work' | 'personal' | 'family'>('personal');
   const [aiProvider, setAiProvider] = useState<'openai' | 'claude'>('openai');
@@ -49,6 +51,9 @@ export function ChatInterface() {
   // AI Chat hook
   const { messages: aiMessages, input, handleInputChange, handleSubmit, isLoading } = useChat({
     api: '/api/chat',
+    headers: {
+      authorization: authToken ? `Bearer ${authToken}` : '',
+    },
     body: {
       context: currentContext,
       aiProvider: aiProvider,

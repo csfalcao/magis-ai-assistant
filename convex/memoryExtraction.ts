@@ -35,7 +35,6 @@ export const extractEntitiesFromContent = action({
     context: v.string(),
     messageId: v.string(),
     conversationId: v.string(),
-    userId: v.optional(v.id("users")), // Allow passing userId directly
   },
   handler: async (ctx, args): Promise<{
     success: boolean;
@@ -44,15 +43,10 @@ export const extractEntitiesFromContent = action({
     metadata?: MemoryMetadata | null;
     error?: string;
   }> => {
-    // Try to get userId from auth context first, then fallback to passed userId
-    let userId = await auth.getUserId(ctx);
-    if (!userId && args.userId) {
-      userId = args.userId;
-    }
+    // Get authenticated user ID - this is now required
+    const userId = await auth.getUserId(ctx);
     if (!userId) {
-      // For development, use a default user if no auth
-      console.log('⚠️ No authentication context, using default user for development');
-      userId = "jh78atbrf5hkhz5bq8pqvzjyf57k3f2a" as any; // csfalcao@gmail.com from the database
+      throw new Error('Not authenticated');
     }
 
     console.log('🎯 Life OS: Extracting entities from content:', args.content.substring(0, 100));
