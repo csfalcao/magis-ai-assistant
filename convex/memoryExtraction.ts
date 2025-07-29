@@ -238,8 +238,11 @@ export const storeExtractedMemory = mutation({
       ...args.entities.why
     ].filter(Boolean);
 
-    // Create mock embedding (will be replaced with real embeddings later)
-    const mockEmbedding = new Array(1536).fill(0.1);
+    // Generate real embedding using Voyage 3.5 Lite
+    const embeddingResult = await ctx.runAction(api.embeddings.generateEmbedding, {
+      text: args.content,
+    });
+    const embedding = embeddingResult.embedding;
     
     const memoryId = await ctx.db.insert('memories', {
       userId: args.userId,
@@ -250,7 +253,7 @@ export const storeExtractedMemory = mutation({
       context: args.context,
       memoryType: inferMemoryType(args.entities),
       importance: args.metadata.importance,
-      embedding: mockEmbedding,
+      embedding: embedding,
       entities: [
         ...args.entities.who,
         ...args.entities.what,
