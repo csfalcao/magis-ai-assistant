@@ -189,7 +189,7 @@ export const scheduleFollowUp = mutation({
       'entertainment': 12, // Half day later
     };
 
-    const followUpDelayHours = followUpTimings[experience.experienceType] || 6;
+    const followUpDelayHours = followUpTimings[experience.experienceType || 'default'] || 6;
     const followUpAt = Date.now() + (followUpDelayHours * 60 * 60 * 1000);
 
     // Update experience with follow-up timing
@@ -245,7 +245,7 @@ export const completeFollowUp = mutation({
     await ctx.db.patch(args.experienceId, {
       followUpCompleted: true,
       lastFollowUpAt: Date.now(),
-      followUpCount: experience.followUpCount + 1,
+      followUpCount: (experience.followUpCount || 0) + 1,
       outcome: args.outcome,
       updatedAt: Date.now(),
     });

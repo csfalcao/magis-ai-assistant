@@ -403,6 +403,57 @@ export default defineSchema({
     .index('by_priority', ['priority'])
     .index('by_external', ['externalSource', 'externalId']),
 
+  // ==================== THREE-TIER SYSTEM TABLES ====================
+  
+  // User profiles for biographical data (WHO I AM)
+  profiles: defineTable({
+    userId: v.id('users'),
+    
+    // Personal information extracted from conversations
+    personalInfo: v.optional(v.array(v.string())),
+    workInfo: v.optional(v.array(v.string())),
+    preferences: v.optional(v.array(v.string())),
+    serviceProviders: v.optional(v.array(v.string())),
+    
+    // Profile completion and confidence
+    completionScore: v.optional(v.number()), // 0-100
+    lastUpdated: v.optional(v.number()),
+    extractionConfidence: v.optional(v.number()), // 0-1
+    
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_user', ['userId']),
+
+  // Hidden system tasks for proactive intelligence
+  system_tasks: defineTable({
+    userId: v.id('users'),
+    experienceId: v.optional(v.id('experiences')),
+    
+    // Task details
+    taskType: v.string(), // 'proactive_followup', 'contact_completion', 'recurring_reminder'
+    description: v.string(),
+    priority: v.string(), // 'low', 'medium', 'high', 'urgent'
+    
+    // Timing
+    triggerDate: v.number(), // When to execute this task
+    executedAt: v.optional(v.number()),
+    
+    // Task metadata
+    metadata: v.optional(v.any()), // Task-specific data
+    
+    // Task status
+    status: v.string(), // 'pending', 'executed', 'cancelled', 'failed'
+    isHidden: v.boolean(), // Hidden from user (magical UX)
+    
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_user', ['userId'])
+    .index('by_user_status', ['userId', 'status'])
+    .index('by_trigger', ['triggerDate'])
+    .index('by_experience', ['experienceId']),
+
   // ==================== RAG MEMORY SYSTEM ====================
   
   memories: defineTable({
@@ -420,6 +471,10 @@ export default defineSchema({
     // Memory categorization
     memoryType: v.string(), // 'fact', 'preference', 'experience', 'skill', 'relationship'
     importance: v.number(), // 1-10 importance score
+    
+    // THREE-TIER CLASSIFICATION SYSTEM
+    classification: v.optional(v.string()), // 'PROFILE', 'MEMORY', 'EXPERIENCE'
+    extractedData: v.optional(v.any()), // Store the full extracted content structure
     
     // Vector embedding for semantic search
     embedding: v.array(v.number()), // Voyage-3.5-lite embeddings (1024 dimensions)
@@ -489,16 +544,34 @@ export default defineSchema({
     actualStartAt: v.optional(v.number()), // When it actually started
     actualEndAt: v.optional(v.number()), // When it actually ended
     
+    // THREE-TIER DATE RESOLUTION
+    resolvedDates: v.optional(v.array(v.object({
+      original: v.string(), // Original text like "next Friday"
+      type: v.string(), // "date" or "range"
+      value: v.optional(v.string()), // Single date (YYYY-MM-DD)
+      start: v.optional(v.string()), // Range start (YYYY-MM-DD)
+      end: v.optional(v.string()), // Range end (YYYY-MM-DD)
+      confidence: v.number(), // 0-1 confidence score
+    }))),
+    originalTimeReferences: v.optional(v.array(v.string())), // Original "when" text
+    
+    // People and location from extraction
+    participantNames: v.optional(v.array(v.string())), // From "who" extraction
+    locationName: v.optional(v.string()), // From "where" extraction
+    
+    // THREE-TIER EXTRACTED DATA
+    extractedEntities: v.optional(v.any()), // Full experience entities
+    
     // Experience type and importance
-    experienceType: v.string(), // 'meeting', 'meal', 'travel', 'health', 'entertainment'
-    importance: v.number(), // 1-10
+    experienceType: v.optional(v.string()), // 'meeting', 'meal', 'travel', 'health', 'entertainment'
+    importance: v.optional(v.number()), // 1-10
     
     // Experience status
     status: v.string(), // 'scheduled', 'in_progress', 'completed', 'cancelled'
     outcome: v.optional(v.string()), // How it went (user reported or inferred)
     
     // Proactive follow-up settings
-    followUpEnabled: v.boolean(),
+    followUpEnabled: v.optional(v.boolean()),
     followUpTiming: v.optional(v.object({
       immediate: v.boolean(), // Right after
       delayed: v.optional(v.number()), // Hours to wait
@@ -506,12 +579,12 @@ export default defineSchema({
     })),
     
     // Follow-up tracking
-    followUpCount: v.number(),
+    followUpCount: v.optional(v.number()),
     lastFollowUpAt: v.optional(v.number()),
     followUpScheduledAt: v.optional(v.number()), // When follow-up should happen
-    followUpCompleted: v.boolean(),
+    followUpCompleted: v.optional(v.boolean()),
     
-    // Location and people
+    // Legacy fields for backward compatibility
     location: v.optional(v.string()),
     participants: v.optional(v.array(v.string())), // People involved
     
