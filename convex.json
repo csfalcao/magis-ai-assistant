@@ -2,7 +2,8 @@
   "node": {
     "externalPackages": [
       "@anthropic-ai/sdk",
-      "openai"
+      "openai",
+      "voyageai"
     ]
   }
 }

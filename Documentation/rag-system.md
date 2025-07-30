@@ -4,6 +4,74 @@
 
 MAGIS implements a sophisticated Personal RAG system that creates genuine long-term memory and learning capabilities. Unlike traditional chatbots that forget everything, MAGIS remembers every interaction and gets smarter over time.
 
+### **🧠 Three-Tier Intelligence Architecture**
+
+MAGIS processes all content through a revolutionary three-tier classification system:
+
+#### **🆔 WHO I AM (Profile)**
+- **Content**: Biographical information ("My birthday is Dec 29", "I work at Google")
+- **Processing**: Updates user profile + creates conversational memory
+- **Entity Extraction**: Personal attributes (birthday, work, location, family)
+- **Purpose**: Build comprehensive user identity understanding
+
+#### **📚 WHAT I DID (Memory)**
+- **Content**: Past events, preferences, experiences ("I love Italian food", "Meeting went well")
+- **Processing**: Creates rich memory records for context and learning
+- **Entity Extraction**: Keywords, sentiment, general entities, relationships
+- **Purpose**: Maintain conversational context and preference learning
+
+#### **📅 WHAT I'LL DO (Experience)**
+- **Content**: Future/planned events ("Dentist appointment next Friday", "Vacation next month")
+- **Processing**: Creates trackable experiences + memories + hidden proactive tasks
+- **Entity Extraction**: WHO/WHAT/WHEN/WHERE for event tracking and management
+- **Purpose**: Enable proactive life management and intelligent follow-ups
+
+### **🔍 Classification-First Processing**
+
+**Single AI Call Architecture**: Content classification drives specialized entity extraction
+- **Step 1**: Classify content → PROFILE/MEMORY/EXPERIENCE
+- **Step 2**: Extract entities based on classification type (specialized extraction)
+- **Step 3**: Route to appropriate systems (profile update, memory storage, experience creation)
+- **Step 4**: Generate hidden system tasks for proactive intelligence (EXPERIENCE only)
+
+**Benefits**: More efficient (single AI call), context-aware extraction, better performance
+
+### **📅 Advanced Date Resolution**
+
+MAGIS implements sophisticated temporal intelligence for proper date handling:
+
+#### **Date Types**
+- **Specific Dates**: "next Friday", "tomorrow", "Dec 29" → `{type: "date", value: "2025-08-01"}`
+- **Date Ranges**: "next week", "next month" → `{type: "range", start: "2025-08-04", end: "2025-08-10"}`
+- **Relative Periods**: "in 2 weeks", "this quarter" → calculated ranges with context
+
+#### **Temporal Intelligence Features**
+- **Context-Aware Calculation**: Uses conversation timestamp for proper "next Friday" resolution
+- **Year Inference**: "Dec 29" determines correct year based on context
+- **Conflict Detection**: Scheduling across date ranges for proper conflict management
+- **Timezone Handling**: Proper date calculation across user timezones
+
+### **⚙️ Task-Based Proactive Intelligence**
+
+MAGIS uses the existing task system as the foundation for proactive intelligence:
+
+#### **Task Types**
+- **User Tasks**: Visible task management for user ("Call dentist")
+- **System Tasks**: Hidden tasks that trigger MAGIS behaviors ("Follow up on appointment")
+- **Proactive Tasks**: Hidden tasks for natural conversation triggers
+
+#### **Magic Preservation**
+Proactive features remain "magical" by hiding the scheduling machinery:
+- User experiences natural follow-ups without seeing task creation
+- System tasks invisible to user but drive intelligent behaviors
+- Unified infrastructure using existing task system
+
+#### **Example Flow**
+Input: "Dentist appointment next Friday with Dr. Smith"
+1. Creates experience record with resolved date
+2. Generates hidden system task: "Follow up on dentist appointment" (due: day after)
+3. MAGIS checks system tasks, triggers natural conversation: "How did your dentist visit go?"
+
 ### **MAGIS Personal Assistant Philosophy**
 **MAGIS is a PRACTICAL personal assistant, NOT a therapist or emotional companion:**
 - ✅ **Routine Optimization**: Remembers appointments, tasks, recurring events
@@ -40,7 +108,7 @@ memory_chunks: defineTable({
   userId: v.id('users'),
   conversationId: v.id('conversations'),
   content: v.string(),              // The actual conversation text
-  embedding: v.array(v.number()),   // 1536-dimensional vector (OpenAI)
+  embedding: v.array(v.number()),   // 1024-dimensional vector (Voyage-3.5-lite)
   metadata: v.object({
     type: v.union(
       v.literal('conversation'),     // Regular chat
@@ -61,7 +129,7 @@ memory_chunks: defineTable({
 .index('by_user', ['userId'])
 .vectorIndex('by_embedding', {
   vectorField: 'embedding',
-  dimensions: 1536,
+  dimensions: 1024,
   filterFields: ['userId', 'metadata.context', 'metadata.type']
 });
 ```
@@ -122,6 +190,53 @@ memory_summaries: defineTable({
   dimensions: 1536
 });
 ```
+
+## 🧩 **Text Chunking Strategy**
+
+### **LangChain SemanticChunker Integration**
+MAGIS uses LangChain's SemanticChunker for intelligent text segmentation, providing better context preservation than traditional character-based or token-based chunking.
+
+```typescript
+// LangChain SemanticChunker Configuration
+import { SemanticChunker } from "langchain/text_splitter";
+import { OpenAIEmbeddings } from "langchain/embeddings/openai";
+
+const semanticChunker = new SemanticChunker(
+  new OpenAIEmbeddings({
+    modelName: "text-embedding-3-small",
+  }),
+  {
+    // Chunk by semantic similarity rather than fixed size
+    breakpointThresholdType: "percentile",
+    breakpointThreshold: 95,
+    // Preserve context boundaries
+    chunkSize: 1000,
+    chunkOverlap: 200,
+  }
+);
+
+// Usage in memory processing
+export const processConversationForRAG = async (conversationText: string) => {
+  // Intelligent semantic chunking
+  const chunks = await semanticChunker.createDocuments([conversationText]);
+  
+  // Each chunk maintains semantic coherence
+  return chunks.map(chunk => ({
+    content: chunk.pageContent,
+    metadata: {
+      ...chunk.metadata,
+      chunkType: 'semantic',
+      preservesContext: true
+    }
+  }));
+};
+```
+
+**Benefits of SemanticChunker:**
+- ✅ **Context Preservation**: Maintains semantic boundaries instead of arbitrary splits
+- ✅ **Better Retrieval**: Chunks represent complete thoughts and concepts
+- ✅ **Improved RAG Quality**: More relevant context for AI responses
+- ✅ **Adaptive Sizing**: Chunks adjust based on content complexity
 
 ## 🔢 **Embedding Generation Pipeline**
 

@@ -1,29 +1,51 @@
 import { action } from './_generated/server';
 import { v } from 'convex/values';
 import OpenAI from 'openai';
+import { VoyageAIClient } from 'voyageai';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Generate embeddings for text content using OpenAI Ada-002
+const voyage = new VoyageAIClient({
+  apiKey: process.env.VOYAGE_API_KEY,
+});
+
+// Generate embeddings for text content using Voyage 3.5 Lite
 export const generateEmbedding = action({
   args: {
     text: v.string(),
   },
   handler: async (ctx, args) => {
     try {
-      const response = await openai.embeddings.create({
-        model: 'text-embedding-ada-002',
-        input: args.text,
+      console.log('🚀 VOYAGE DEBUG: generateEmbedding called');
+      console.log('🚀 VOYAGE DEBUG: Text length:', args.text.length);
+      console.log('🚀 VOYAGE DEBUG: Text preview:', args.text.substring(0, 100));
+      
+      const response = await voyage.embed({
+        input: [args.text],
+        model: 'voyage-3.5-lite',
+        inputType: 'document',
       });
 
+      console.log('🚀 VOYAGE DEBUG: Response received');
+      console.log('🚀 VOYAGE DEBUG: Response structure:', {
+        hasData: !!response.data,
+        dataLength: response.data?.length || 0,
+        hasUsage: !!response.usage,
+        totalTokens: response.usage?.totalTokens || 0
+      });
+
+      const embedding = response.data?.[0]?.embedding || [];
+      console.log('🚀 VOYAGE DEBUG: Embedding generated, length:', embedding.length);
+
       return {
-        embedding: response.data[0].embedding,
-        tokens: response.usage.total_tokens,
+        embedding: embedding,
+        tokens: response.usage?.totalTokens || 0,
       };
     } catch (error) {
-      console.error('Error generating embedding:', error);
+      console.error('❌ VOYAGE DEBUG: Error generating Voyage embedding:', error);
+      console.error('❌ VOYAGE DEBUG: Error details:', error instanceof Error ? error.stack : 'No stack');
       throw new Error('Failed to generate embedding');
     }
   },
@@ -36,30 +58,24 @@ export const generateBatchEmbeddings = action({
   },
   handler: async (ctx, args) => {
     try {
-      // OpenAI allows up to 2048 inputs per batch
-      const batchSize = 100; // Conservative batch size
-      const results = [];
-      
-      for (let i = 0; i < args.texts.length; i += batchSize) {
-        const batch = args.texts.slice(i, i + batchSize);
-        
-        const response = await openai.embeddings.create({
-          model: 'text-embedding-ada-002',
-          input: batch,
-        });
+      // Voyage allows batch processing - process all texts at once
+      const response = await voyage.embed({
+        input: args.texts,
+        model: 'voyage-3.5-lite',
+        inputType: 'document',
+      });
 
-        results.push(...response.data.map(item => ({
-          embedding: item.embedding,
-          index: item.index + i, // Adjust index for batch offset
-        })));
-      }
+      const results = response.data?.map((item: any, index: number) => ({
+        embedding: item.embedding,
+        index: index,
+      })) || [];
 
       return {
         embeddings: results,
-        totalTokens: results.length * 1536, // Approximate token count
+        totalTokens: response.usage?.totalTokens || 0,
       };
     } catch (error) {
-      console.error('Error generating batch embeddings:', error);
+      console.error('Error generating batch Voyage embeddings:', error);
       throw new Error('Failed to generate batch embeddings');
     }
   },
@@ -165,14 +181,15 @@ export const generateQueryEmbedding = action({
   },
   handler: async (ctx, args) => {
     try {
-      const response = await openai.embeddings.create({
-        model: 'text-embedding-ada-002',
-        input: args.query,
+      const response = await voyage.embed({
+        input: [args.query],
+        model: 'voyage-3.5-lite',
+        inputType: 'query', // Use 'query' input type for search queries
       });
 
-      return response.data[0].embedding;
+      return response.data?.[0]?.embedding || [];
     } catch (error) {
-      console.error('Error generating query embedding:', error);
+      console.error('Error generating Voyage query embedding:', error);
       throw new Error('Failed to generate query embedding');
     }
   },

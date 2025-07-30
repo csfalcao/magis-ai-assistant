@@ -239,15 +239,18 @@ export const createMemoryFromMessage = action({
     if (args.content.includes('like') || args.content.includes('prefer')) memoryType = 'preference';
     if (args.content.includes('went') || args.content.includes('did')) memoryType = 'experience';
 
-    // Store the memory with mock embedding
-    const mockEmbedding = new Array(1536).fill(0.1);
+    // Generate real embedding using Voyage 3.5 Lite
+    const embeddingResult = await ctx.runAction(api.embeddings.generateEmbedding, {
+      text: args.content,
+    });
+    const embedding = embeddingResult.embedding;
     
     const memoryId = await ctx.runMutation(api.memory.storeMemory, {
       content: args.content,
       sourceType: 'message',
       sourceId: args.messageId,
       context: args.context,
-      embedding: mockEmbedding,
+      embedding: embedding || [],
       summary: args.content.substring(0, 100) + '...',
       memoryType,
       importance,

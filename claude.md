@@ -19,6 +19,8 @@ MAGIS is a revolutionary personal AI assistant that combines:
 - **Real-time**: Convex reactive queries (no Socket.IO needed)
 - **Voice**: Browser Speech API + OpenAI Whisper + ElevenLabs
 - **Vector Search**: Convex built-in vector search for RAG
+- **Text Processing**: LangChain SemanticChunker for intelligent text segmentation
+- **Embeddings**: Voyage-3.5-lite (1024 dimensions, int8 quantization)
 - **Deployment**: Vercel (frontend) + Convex Cloud (backend)
 
 **Why This Stack**: 
@@ -239,97 +241,75 @@ The goal is to create something that makes users say: *"I can't live without MAG
 
 **Market Positioning**: The first AI that treats your entire life as an integrated operating system with predictable needs, cycles, and optimizations.
 
-### **🧬 The Sims Framework Implementation**
-Inspired by The Sims' universal needs system (health, hunger, sleep), MAGIS implements universal **Life Needs**:
+### **🧠 Three-Tier Intelligence Architecture**
 
-- **🏥 Health Maintenance**: Dentist (6mo), doctor (12mo), prescriptions, checkups
-- **💰 Financial Cycles**: Bills, insurance, taxes, budget reviews  
-- **🚗 Asset Maintenance**: Car service, home maintenance, tech updates
-- **💼 Professional Development**: Skills, networking, career planning
+**Core Innovation**: MAGIS now distinguishes between three fundamental types of content:
 
-**Progressive Enhancement Strategy**:
-1. **Health Module First** (universal, predictable, non-controversial)
-2. **Asset Maintenance** (car, home, technology)  
-3. **Financial Management** (bills, planning, optimization)
-4. **Professional Growth** (skills, network, career)
-5. **MCP Integration** (calendar, health systems, project management)
+#### **🆔 WHO I AM (Profile)**
+- **Biographical Information**: "My birthday is Dec 29", "I work at Google", "I live in Miami"
+- **Processing**: Updates user profile automatically + creates conversational memory
+- **Purpose**: Build comprehensive understanding of user identity and context
+
+#### **📚 WHAT I DID (Memory)**  
+- **Past Events & Preferences**: "I love Italian food", "Had great dinner last night", "Meeting went well"
+- **Processing**: Creates rich memory records for context and learning
+- **Purpose**: Maintain conversational context and understand user preferences
+
+#### **📅 WHAT I'LL DO (Experience)**
+- **Future/Planned Events**: "Dentist appointment next Friday", "Vacation next month", "Meeting tomorrow"
+- **Processing**: Creates trackable experiences + memories + generates hidden proactive tasks
+- **Purpose**: Enable proactive life management and follow-up intelligence
+
+### **🔍 Classification-First Processing (Option B)**
+
+**Single AI Call Architecture**: Content classification drives specialized entity extraction
+- **Efficiency**: One AI call instead of double processing
+- **Intelligence**: Context-aware extraction tailored to content type
+- **Performance**: Faster response times, lower costs
+
+**Processing Flow**:
+1. **Classify** content → PROFILE/MEMORY/EXPERIENCE
+2. **Extract** entities based on classification type
+3. **Route** to appropriate systems (profile update, memory storage, experience creation)
+4. **Generate** hidden system tasks for proactive intelligence
+
+### **📅 Advanced Date Resolution**
+
+**Date Ranges for Periods**:
+- **Specific Dates**: "next Friday" → `{type: "date", value: "2025-08-01"}`
+- **Time Periods**: "next week" → `{type: "range", start: "2025-08-04", end: "2025-08-10"}`
+- **Temporal Intelligence**: Proper conflict detection and scheduling across date ranges
+
+### **⚙️ Task-Based Proactive Intelligence**
+
+**Hidden System Tasks**: Proactive intelligence runs through existing task infrastructure
+- **User Tasks**: Visible task management for user
+- **System Tasks**: Hidden tasks that trigger MAGIS proactive behaviors
+- **Magic Preservation**: User experiences natural follow-ups without seeing scheduling machinery
+
+**Example**: "Dentist appointment next Friday" creates hidden task "Follow up on dentist appointment" (due: day after)
 
 ### **✅ Technical Implementation Status**
 
 #### **Foundation Complete**:
 - ✅ **Modern Stack Stable**: React 19 + Next.js 15 + AI SDK 4.x working perfectly
-- ✅ **Build Process**: Zero TypeScript errors, clean compilation
-- ✅ **Convex Integration**: Functions deployed, authentication working
-- ✅ **Chat Interface**: Natural AI responses, streaming working
+- ✅ **Voyage Embeddings**: 1024-dimensional Voyage-3.5-lite embeddings working
+- ✅ **Memory Extraction**: WHO/WHAT/WHEN/WHERE entity extraction operational
+- ✅ **Database Schema**: Complete Life OS structure with embeddings and metadata
 
-#### **Life OS Memory System**:
-- ✅ **WHO/WHAT/WHEN/WHERE Framework**: Implemented in `convex/memoryExtraction.ts`
-- ✅ **AI-Powered Entity Extraction**: Claude/GPT integration with intelligent fallbacks
-- ✅ **Life OS Structure**: Memory categorization for life management
-- ✅ **Database Schema**: Sophisticated memory storage with entities and metadata
-
-#### **⚠️ Debug Required (Next Session Priority)**:
-**Issue**: Chat messages recorded in DB ✅, but Life OS memory extraction not creating memory/experience/task records ❌
-
-**Root Cause**: Complex processing chain `processMessageForProactive()` → experience detection → memory extraction may be failing silently
-
-**Debug Plan**:
-1. Check development console error logs
-2. Test `api.ai.extractStructuredData` dependency 
-3. Isolate memory extraction function testing
-4. Fix processing chain to ensure Life OS extraction works
-5. Verify "I need to go to the dentist next month" creates WHO/WHAT/WHEN/WHERE memory
-
-### **🎯 Life OS Implementation Roadmap**
-
-#### **Phase 1: Memory Foundation** (90% complete - debugging needed)
-- Restore sophisticated WHO/WHAT/WHEN/WHERE extraction
-- Test: "I need to go to the dentist next month" → Creates structured memory
-- Verify: Memory retrieval in chat responses
-
-#### **Phase 2: Health OS Module** (ready to implement)
-- Health need detection and lifecycle tracking  
-- Universal health cycles (dental 6mo, physical 12mo)
-- Health maintenance records with urgency calculation
-
-#### **Phase 3: Validation Testing** (planned)
-- 20-question health scenario test battery
-- 90%+ accuracy target for health need detection
-- Robust edge case handling
-
-#### **Phase 4: Life OS Expansion** (framework ready)
-- Asset maintenance module (car, home, tech)
-- Financial cycles module (bills, insurance, planning)
-- Professional development module (skills, networking)
-
-#### **Phase 5: MCP Integration** (strategic planning)
-- Calendar integration for appointment scheduling
-- Health system connections (pharmacy, providers)
-- Project management tools (Asana, Trello, Monday.com)
-
-### **🏆 Strategic Advantages of Life OS Positioning**
-
-1. **Unique Market Position**: First "Life Operating System" - new product category
-2. **Natural Moat**: Complex life pattern understanding, hard to replicate
-3. **High Switching Cost**: Once MAGIS manages life cycles, difficult to leave
-4. **Universal Appeal**: Everyone has same basic life maintenance needs
-5. **Clear Expansion Path**: Systematic framework for adding new life modules
-
-### **📋 Process Improvements Implemented**
-
-- ✅ **User Confirmation Required**: Each phase must be approved before proceeding
-- ✅ **Commit After Approval**: Only commit after user confirms phase success
-- ✅ **No Downgrades**: Never revert functionality - only build forward
-- ✅ **Decision Escalation**: Any bugs/scenarios → ASK USER to decide
-- ✅ **TodoWrite Tracking**: All progress systematically tracked
+#### **🎯 Next Implementation Phase**:
+**Three-Tier Intelligence System**: Implement classification-first processing with:
+- Content classification into PROFILE/MEMORY/EXPERIENCE
+- Specialized entity extraction per content type
+- Date range resolution for temporal intelligence
+- Hidden system task generation for proactive features
 
 ### **🎖️ Next Session Goals**
 
-1. **Debug Memory Extraction**: Fix the processing chain to enable Life OS memory creation
-2. **Complete Phase 1**: Verify WHO/WHAT/WHEN/WHERE extraction working end-to-end
-3. **Begin Health OS Module**: Implement first Life OS need detection system
-4. **Test Validation**: Prove concept with dentist appointment lifecycle tracking
+1. **Implement Three-Tier Classification**: Build classification-first memory processing
+2. **Date Range Resolution**: "Next week" → proper date ranges with start/end
+3. **Profile Integration**: "My birthday is Dec 29" → automatic profile updates
+4. **Hidden Task System**: Generate proactive tasks without exposing scheduling machinery
+5. **End-to-End Testing**: Validate complete intelligence pipeline
 
-**Status**: Life OS foundation 90% complete. Final debugging needed for breakthrough to world's first Life Operating System.
-
-Let's build the future of personal AI assistance! 🎯
+**Status**: Life OS architecture defined. Ready for three-tier intelligence implementation.

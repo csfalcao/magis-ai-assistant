@@ -422,7 +422,7 @@ export default defineSchema({
     importance: v.number(), // 1-10 importance score
     
     // Vector embedding for semantic search
-    embedding: v.array(v.number()), // OpenAI ada-002 embeddings (1536 dimensions)
+    embedding: v.array(v.number()), // Voyage-3.5-lite embeddings (1024 dimensions)
     
     // Memory metadata
     entities: v.optional(v.array(v.string())), // Extracted entities (people, places, things)
@@ -449,7 +449,7 @@ export default defineSchema({
     // Vector index will be added when Convex supports it
     // .vectorIndex('by_embedding', {
     //   vectorField: 'embedding',
-    //   dimensions: 1536, // OpenAI ada-002 embedding size
+    //   dimensions: 1024, // Voyage-3.5-lite embedding size
     //   filterFields: ['userId', 'context', 'memoryType', 'isActive']
     // }),
 
