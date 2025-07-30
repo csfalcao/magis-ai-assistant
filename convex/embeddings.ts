@@ -1,13 +1,13 @@
 import { action } from './_generated/server';
 import { v } from 'convex/values';
 import OpenAI from 'openai';
-import { VoyageAIApi } from 'voyageai';
+import { VoyageAIClient } from 'voyageai';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const voyage = new VoyageAIApi({
+const voyage = new VoyageAIClient({
   apiKey: process.env.VOYAGE_API_KEY,
 });
 
@@ -18,18 +18,34 @@ export const generateEmbedding = action({
   },
   handler: async (ctx, args) => {
     try {
+      console.log('🚀 VOYAGE DEBUG: generateEmbedding called');
+      console.log('🚀 VOYAGE DEBUG: Text length:', args.text.length);
+      console.log('🚀 VOYAGE DEBUG: Text preview:', args.text.substring(0, 100));
+      
       const response = await voyage.embed({
-        texts: [args.text],
+        input: [args.text],
         model: 'voyage-3.5-lite',
         inputType: 'document',
       });
 
+      console.log('🚀 VOYAGE DEBUG: Response received');
+      console.log('🚀 VOYAGE DEBUG: Response structure:', {
+        hasData: !!response.data,
+        dataLength: response.data?.length || 0,
+        hasUsage: !!response.usage,
+        totalTokens: response.usage?.totalTokens || 0
+      });
+
+      const embedding = response.data?.[0]?.embedding || [];
+      console.log('🚀 VOYAGE DEBUG: Embedding generated, length:', embedding.length);
+
       return {
-        embedding: response.data[0].embedding,
+        embedding: embedding,
         tokens: response.usage?.totalTokens || 0,
       };
     } catch (error) {
-      console.error('Error generating Voyage embedding:', error);
+      console.error('❌ VOYAGE DEBUG: Error generating Voyage embedding:', error);
+      console.error('❌ VOYAGE DEBUG: Error details:', error instanceof Error ? error.stack : 'No stack');
       throw new Error('Failed to generate embedding');
     }
   },
@@ -44,15 +60,15 @@ export const generateBatchEmbeddings = action({
     try {
       // Voyage allows batch processing - process all texts at once
       const response = await voyage.embed({
-        texts: args.texts,
+        input: args.texts,
         model: 'voyage-3.5-lite',
         inputType: 'document',
       });
 
-      const results = response.data.map((item, index) => ({
+      const results = response.data?.map((item: any, index: number) => ({
         embedding: item.embedding,
         index: index,
-      }));
+      })) || [];
 
       return {
         embeddings: results,
@@ -166,12 +182,12 @@ export const generateQueryEmbedding = action({
   handler: async (ctx, args) => {
     try {
       const response = await voyage.embed({
-        texts: [args.query],
+        input: [args.query],
         model: 'voyage-3.5-lite',
         inputType: 'query', // Use 'query' input type for search queries
       });
 
-      return response.data[0].embedding;
+      return response.data?.[0]?.embedding || [];
     } catch (error) {
       console.error('Error generating Voyage query embedding:', error);
       throw new Error('Failed to generate query embedding');

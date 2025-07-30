@@ -255,10 +255,17 @@ export async function POST(req: Request) {
 
       // Process message for proactive triggers (experiences and contacts)
       try {
+        console.log('🔄 MEMORY DEBUG: Starting proactive processing...');
+        console.log('🔄 MEMORY DEBUG: Message:', latestUserMessage.substring(0, 100));
+        console.log('🔄 MEMORY DEBUG: Context:', context);
+        console.log('🔄 MEMORY DEBUG: ConversationId:', conversationId);
+        
         // This will detect experiences and create contacts automatically
-        await processMessageForProactive(latestUserMessage, context, conversationId);
+        const result = await processMessageForProactive(latestUserMessage, context, conversationId);
+        console.log('✅ MEMORY DEBUG: Proactive processing result:', result);
       } catch (error) {
-        console.error('Proactive processing failed:', error);
+        console.error('❌ MEMORY DEBUG: Proactive processing failed:', error);
+        console.error('❌ MEMORY DEBUG: Error stack:', error instanceof Error ? error.stack : 'No stack');
         // Continue anyway - proactive features are nice-to-have
       }
     }
@@ -368,13 +375,18 @@ async function processMessageForProactive(messageContent: string, context: strin
 // Create memory from message content using Life OS extraction
 async function createMemoryFromMessage(content: string, context: string, conversationId?: string) {
   try {
+    console.log('🧠 MEMORY DEBUG: createMemoryFromMessage called');
+    console.log('🧠 MEMORY DEBUG: Content:', content);
+    console.log('🧠 MEMORY DEBUG: Context:', context);
+    console.log('🧠 MEMORY DEBUG: ConversationId:', conversationId);
+    
     // Skip memory creation if no valid conversationId
     if (!conversationId) {
-      console.log('⏭️ Life OS: Skipping memory creation - no valid conversationId');
+      console.log('⏭️ MEMORY DEBUG: Skipping memory creation - no valid conversationId');
       return null;
     }
 
-    console.log('🧠 Life OS: Creating memory with WHO/WHAT/WHEN/WHERE extraction');
+    console.log('🧠 MEMORY DEBUG: Starting Life OS memory extraction...');
 
     // Use the sophisticated Life OS memory extraction system
     const extractionResult = await convex.action(api.memoryExtraction.extractEntitiesFromContent, {
@@ -385,8 +397,12 @@ async function createMemoryFromMessage(content: string, context: string, convers
       userId: "jh78atbrf5hkhz5bq8pqvzjyf57k3f2a", // Default user for development
     });
 
+    console.log('🧠 MEMORY DEBUG: Extraction result:', JSON.stringify(extractionResult, null, 2));
+
     if (extractionResult.success) {
-      console.log('✅ Life OS: Memory created with entities:', {
+      console.log('✅ MEMORY DEBUG: Memory created successfully!');
+      console.log('✅ MEMORY DEBUG: Memory ID:', extractionResult.memoryId);
+      console.log('✅ MEMORY DEBUG: Extracted entities:', {
         who: extractionResult.extractedEntities?.who.length || 0,
         what: extractionResult.extractedEntities?.what.length || 0,
         when: extractionResult.extractedEntities?.when.length || 0,
@@ -394,7 +410,8 @@ async function createMemoryFromMessage(content: string, context: string, convers
       });
       return extractionResult.memoryId;
     } else {
-      console.error('❌ Life OS: Memory extraction failed:', extractionResult.error);
+      console.error('❌ MEMORY DEBUG: Memory extraction failed!');
+      console.error('❌ MEMORY DEBUG: Error:', extractionResult.error);
       return null;
     }
   } catch (error) {

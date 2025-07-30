@@ -250,7 +250,7 @@ export const createMemoryFromMessage = action({
       sourceType: 'message',
       sourceId: args.messageId,
       context: args.context,
-      embedding: embedding,
+      embedding: embedding || [],
       summary: args.content.substring(0, 100) + '...',
       memoryType,
       importance,

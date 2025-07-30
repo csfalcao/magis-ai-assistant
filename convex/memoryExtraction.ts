@@ -55,7 +55,10 @@ export const extractEntitiesFromContent = action({
       userId = "jh78atbrf5hkhz5bq8pqvzjyf57k3f2a" as any; // csfalcao@gmail.com from the database
     }
 
-    console.log('🎯 Life OS: Extracting entities from content:', args.content.substring(0, 100));
+    console.log('🎯 MEMORY DEBUG: extractEntitiesFromContent called');
+    console.log('🎯 MEMORY DEBUG: Content:', args.content.substring(0, 100));
+    console.log('🎯 MEMORY DEBUG: Context:', args.context);
+    console.log('🎯 MEMORY DEBUG: UserId:', userId);
     
     // AI extraction prompt optimized for Life OS
     const extractionPrompt = `
@@ -98,7 +101,8 @@ Return as JSON with this exact structure:
 }`;
 
     try {
-      console.log('🤖 Life OS: Calling AI for entity extraction...');
+      console.log('🤖 MEMORY DEBUG: Calling AI for entity extraction...');
+      console.log('🤖 MEMORY DEBUG: Prompt length:', extractionPrompt.length);
       
       // Call AI for extraction
       const extractionResult = await ctx.runAction(api.ai.extractStructuredData, {
@@ -106,7 +110,8 @@ Return as JSON with this exact structure:
         userId: userId!,
       });
 
-      console.log('🤖 AI extraction result received');
+      console.log('🤖 MEMORY DEBUG: AI extraction result received');
+      console.log('🤖 MEMORY DEBUG: AI result:', JSON.stringify(extractionResult, null, 2));
       
       let parsed: { entities: ExtractedEntities, metadata: MemoryMetadata };
       try {
@@ -169,8 +174,22 @@ Return as JSON with this exact structure:
         console.log('📊 Life OS: Using fallback entities:', parsed);
       }
       
+      // Generate embedding first (in action context)
+      console.log('🔗 MEMORY DEBUG: Generating Voyage embedding...');
+      console.log('🔗 MEMORY DEBUG: Text to embed:', args.content.substring(0, 100));
+      
+      const embeddingResult = await ctx.runAction(api.embeddings.generateEmbedding, {
+        text: args.content,
+      });
+      
+      console.log('🔗 MEMORY DEBUG: Embedding result:', {
+        hasEmbedding: !!embeddingResult.embedding,
+        embeddingLength: embeddingResult.embedding?.length || 0,
+        tokens: embeddingResult.tokens
+      });
+      
       // Store extracted memory using Life OS structure
-      console.log('💾 Life OS: Storing extracted memory...');
+      console.log('💾 MEMORY DEBUG: Storing extracted memory in database...');
       const memoryId: any = await ctx.runMutation(api.memoryExtraction.storeExtractedMemory, {
         userId: userId!,
         content: args.content,
@@ -179,6 +198,7 @@ Return as JSON with this exact structure:
         context: args.context,
         entities: parsed.entities,
         metadata: parsed.metadata,
+        embedding: embeddingResult.embedding || [],
       });
       
       console.log('✅ Life OS: Memory stored successfully:', memoryId);
@@ -226,6 +246,7 @@ export const storeExtractedMemory = mutation({
       priority: v.string(),
       actionItems: v.array(v.string()),
     }),
+    embedding: v.array(v.number()), // Accept embedding from action context
   },
   handler: async (ctx, args) => {
     // Create summary from entities
@@ -237,12 +258,6 @@ export const storeExtractedMemory = mutation({
       ...args.entities.who,
       ...args.entities.why
     ].filter(Boolean);
-
-    // Generate real embedding using Voyage 3.5 Lite
-    const embeddingResult = await ctx.runAction(api.embeddings.generateEmbedding, {
-      text: args.content,
-    });
-    const embedding = embeddingResult.embedding;
     
     const memoryId = await ctx.db.insert('memories', {
       userId: args.userId,
@@ -253,7 +268,7 @@ export const storeExtractedMemory = mutation({
       context: args.context,
       memoryType: inferMemoryType(args.entities),
       importance: args.metadata.importance,
-      embedding: embedding,
+      embedding: args.embedding,
       entities: [
         ...args.entities.who,
         ...args.entities.what,
