@@ -102,9 +102,9 @@ export const extractEntitiesFromContent = action({
     // Get current timestamp for date resolution
     const conversationTimestamp = Date.now();
     
-    // Three-Tier Classification-First AI prompt
+    // Enhanced Single Table AI prompt with universal entity extraction and date resolution
     const classificationPrompt = `
-Analyze this conversation content using MAGIS Three-Tier Intelligence:
+Analyze this conversation content using MAGIS Enhanced Single Table Intelligence:
 
 Content: "${args.content}"
 Context: ${args.context}
@@ -115,47 +115,110 @@ STEP 1: CLASSIFY the content type:
 - MEMORY: Past events, preferences, experiences ("I love Italian food", "Had great dinner last night", "Meeting went well")
 - EXPERIENCE: Future/planned events ("Dentist appointment next Friday", "Vacation next month", "Meeting tomorrow")
 
-STEP 2: EXTRACT entities based on classification:
+STEP 2: UNIVERSAL ENTITY EXTRACTION (for ALL classifications):
+Extract people, organizations, and locations from the content:
+
+- people: Array of {name: string, relationship?: string, confidence: number}
+  * "my friend Sarah" → {name: "Sarah", relationship: "friend", confidence: 0.9}
+  * "Dr. Smith" → {name: "Dr. Smith", relationship: "doctor", confidence: 0.9}
+  * "with Mom" → {name: "Mom", relationship: "mother", confidence: 0.8}
+
+- organizations: Array of {name: string, type?: string, role?: string, confidence: number}
+  * "Google" → {name: "Google", type: "company", role: "workplace", confidence: 0.9}
+  * "Luigi's restaurant" → {name: "Luigi's", type: "restaurant", role: "location", confidence: 0.9}
+  * "downtown clinic" → {name: "Downtown Clinic", type: "medical", role: "service", confidence: 0.8}
+
+- locations: Array of strings
+  * ["downtown", "Miami", "Luigi's", "office"]
+
+STEP 3: UNIVERSAL DATE RESOLUTION (for ALL classifications):
+Convert ALL temporal references to structured dates with timestamps:
+- "Dec 29" → {original: "Dec 29", type: "date", value: "2024-12-29", timestamp: 1703808000000, confidence: 0.9}
+- "next Friday" → {original: "next Friday", type: "date", value: "2025-08-08", timestamp: 1754668800000, confidence: 0.9}
+- "last night" → {original: "last night", type: "date", value: "2025-07-29", timestamp: 1753833600000, confidence: 0.8}
+- "next week" → {original: "next week", type: "range", start: "2025-08-04", end: "2025-08-10", confidence: 0.8}
+
+STEP 4: CLASSIFICATION-SPECIFIC DATA:
+Based on classification, extract specialized data:
 
 IF PROFILE: Extract personal attributes
-- personalInfo: Birthday, name, location, family details
-- workInfo: Company, position, work details
-- preferences: Diet, hobbies, communication style  
-- serviceProviders: Doctors, dentists, professionals
+- personalInfo: ["Birthday: December 29th", "Lives in: Miami"]
+- workInfo: ["Company: Google", "Position: Software Engineer"] 
+- preferences: ["Diet: Vegetarian", "Hobby: Photography"]
+- serviceProviders: ["Dr. Smith - Dentist"]
 
 IF MEMORY: Extract contextual information
-- keywords: Important concepts and terms
-- entities: People, places, things mentioned
-- relationships: Connections between entities
-- sentiment: Emotional tone
+- keywords: ["dinner", "restaurant", "great", "Italian"]
+- entities: ["Sarah", "Luigi's", "downtown"]
+- relationships: ["Sarah - friend", "Luigi's - favorite restaurant"]
+- sentiment: "positive"
+- emotionalContext: "happy"
 
-IF EXPERIENCE: Extract event details + resolve dates
-- who: People involved
-- what: Actions, events, appointments  
-- when: Time references (original text)
-- where: Location references
-- why: Reasons, motivations
-- how: Methods, processes
-- resolvedDates: Convert relative dates to absolute dates
+IF EXPERIENCE: Extract event details
+- scheduledDate: primary timestamp for the event
+- participants: ["Dr. Smith", "Sarah"]
+- location: "downtown"
+- status: "pending"
+- priority: "medium"
 
-STEP 3: RESOLVE DATES (for EXPERIENCE only):
-- "next Friday" → calculate actual date using timestamp
-- "next week" → calculate date range (start/end)
-- "tomorrow" → calculate specific date
-- "next month" → calculate date range
-- Include confidence score (0-1) for each resolution
+Return VALID JSON with this EXACT structure:
 
-Return JSON with this structure:
 {
   "classification": "PROFILE|MEMORY|EXPERIENCE",
-  "profileEntities": { ... } // Only if PROFILE
-  "memoryEntities": { ... }  // Only if MEMORY  
-  "experienceEntities": { ... } // Only if EXPERIENCE
+  
+  // UNIVERSAL fields (all classifications get these)
+  "resolvedDates": [
+    {
+      "original": "Dec 29",
+      "type": "date", 
+      "value": "2024-12-29",
+      "timestamp": 1703808000000,
+      "confidence": 0.9
+    }
+  ],
+  
+  "extractedEntities": {
+    "people": [
+      {"name": "Sarah", "relationship": "friend", "confidence": 0.9}
+    ],
+    "organizations": [
+      {"name": "Google", "type": "company", "role": "workplace", "confidence": 0.9}
+    ],
+    "locations": ["downtown", "Miami"]
+  },
+  
+  // CLASSIFICATION-SPECIFIC nested data (only include relevant section)
+  "profileData": {
+    "personalInfo": ["Birthday: December 29th"],
+    "workInfo": ["Company: Google"],
+    "preferences": ["Diet: Vegetarian"],
+    "serviceProviders": ["Dr. Smith - Dentist"],
+    "extractionConfidence": 0.9
+  },
+  
+  // OR for MEMORY classification:
+  "memoryData": {
+    "keywords": ["dinner", "restaurant", "great"],
+    "entities": ["Sarah", "Luigi's"],
+    "relationships": ["Sarah - friend"],
+    "sentiment": "positive",
+    "emotionalContext": "happy"
+  },
+  
+  // OR for EXPERIENCE classification:
+  "experienceData": {
+    "scheduledDate": 1754668800000,
+    "participants": ["Dr. Smith"],
+    "location": "downtown",
+    "status": "pending",
+    "priority": "medium"
+  },
+  
   "metadata": {
     "importance": 8,
     "emotionalContext": "neutral",
-    "priority": "medium", 
-    "actionItems": ["specific tasks"],
+    "priority": "medium",
+    "actionItems": [],
     "confidence": 0.9
   }
 }`;
@@ -244,8 +307,8 @@ Return JSON with this structure:
       
       console.log('🔄 THREE-TIER DEBUG: Routing content based on classification:', extractedContent.classification);
       
-      // Always create memory for conversational context
-      memoryId = await ctx.runMutation(api.memoryExtraction.storeThreeTierMemory, {
+      // Store in enhanced single table with universal entity extraction
+      memoryId = await ctx.runMutation(api.memoryExtraction.storeEnhancedMemory, {
         userId: userId!,
         content: args.content,
         messageId: args.messageId,
@@ -257,17 +320,55 @@ Return JSON with this structure:
       
       console.log('✅ THREE-TIER DEBUG: Memory stored:', memoryId);
       
+      // UNIVERSAL CONTACT PROCESSING (for all classifications)
+      if (extractedContent.extractedEntities?.people?.length) {
+        console.log('👥 ENHANCED: Processing extracted people for contact creation...');
+        try {
+          const contactsCreated = await ctx.runMutation(api.memoryExtraction.processExtractedContacts, {
+            userId: userId!,
+            extractedPeople: extractedContent.extractedEntities.people,
+            memoryId: memoryId,
+            context: args.context
+          });
+          console.log('✅ ENHANCED: Contacts processed:', contactsCreated);
+        } catch (error) {
+          console.error('❌ ENHANCED: Contact processing failed:', error);
+        }
+      }
+      
       // Route to specialized systems based on classification
       if (extractedContent.classification === "PROFILE") {
         console.log('👤 THREE-TIER DEBUG: Processing PROFILE content...');
-        profileUpdated = await updateUserProfile(ctx, userId!, extractedContent.profileEntities!, args.context);
+        try {
+          profileUpdated = await ctx.runMutation(api.memoryExtraction.updateUserProfileMutation, {
+            userId: userId!,
+            profileEntities: extractedContent.profileEntities!,
+            context: args.context
+          });
+        } catch (error) {
+          console.error('❌ THREE-TIER: Profile update failed:', error);
+          profileUpdated = false;
+        }
       } else if (extractedContent.classification === "EXPERIENCE") {
         console.log('📅 THREE-TIER DEBUG: Processing EXPERIENCE content...');
-        experienceId = await createExperienceFromContent(ctx, userId!, extractedContent.experienceEntities!, args.context);
-        
-        // Generate hidden system task for proactive intelligence
-        if (experienceId && extractedContent.experienceEntities?.resolvedDates?.length) {
-          systemTaskId = await generateSystemTask(ctx, userId!, experienceId, extractedContent);
+        try {
+          experienceId = await ctx.runMutation(api.memoryExtraction.createExperienceMutation, {
+            userId: userId!,
+            experienceEntities: extractedContent.experienceEntities!,
+            context: args.context
+          });
+          
+          // Generate hidden system task for proactive intelligence
+          if (experienceId && extractedContent.experienceEntities?.resolvedDates?.length) {
+            systemTaskId = await ctx.runMutation(api.memoryExtraction.generateSystemTaskMutation, {
+              userId: userId!,
+              experienceId,
+              extractedContent
+            });
+          }
+        } catch (error) {
+          console.error('❌ THREE-TIER: Experience creation failed:', error);
+          experienceId = null;
         }
       }
       
@@ -301,9 +402,9 @@ Return JSON with this structure:
 });
 
 /**
- * Store three-tier extracted memory with Life OS structure
+ * Store enhanced single table memory with universal entity extraction and date resolution
  */
-export const storeThreeTierMemory = mutation({
+export const storeEnhancedMemory = mutation({
   args: {
     userId: v.id("users"),
     content: v.string(),
@@ -312,34 +413,58 @@ export const storeThreeTierMemory = mutation({
     context: v.string(),
     extractedContent: v.object({
       classification: v.string(),
-      profileEntities: v.optional(v.object({
-        personalInfo: v.array(v.string()),
-        workInfo: v.array(v.string()),
-        preferences: v.array(v.string()),
-        serviceProviders: v.array(v.string()),
-      })),
-      memoryEntities: v.optional(v.object({
-        keywords: v.array(v.string()),
-        entities: v.array(v.string()),
-        relationships: v.array(v.string()),
-        sentiment: v.string(),
-      })),
-      experienceEntities: v.optional(v.object({
-        who: v.array(v.string()),
-        what: v.array(v.string()),
-        when: v.array(v.string()),
-        where: v.array(v.string()),
-        why: v.array(v.string()),
-        how: v.array(v.string()),
-        resolvedDates: v.array(v.object({
-          original: v.string(),
-          type: v.string(),
-          value: v.optional(v.string()),
-          start: v.optional(v.string()),
-          end: v.optional(v.string()),
+      
+      // Universal fields (all classifications)
+      resolvedDates: v.optional(v.array(v.object({
+        original: v.string(),
+        type: v.string(),
+        value: v.optional(v.string()),
+        start: v.optional(v.string()),
+        end: v.optional(v.string()),
+        timestamp: v.optional(v.number()),
+        confidence: v.number(),
+      }))),
+      
+      extractedEntities: v.optional(v.object({
+        people: v.optional(v.array(v.object({
+          name: v.string(),
+          relationship: v.optional(v.string()),
           confidence: v.number(),
-        })),
+        }))),
+        organizations: v.optional(v.array(v.object({
+          name: v.string(),
+          type: v.optional(v.string()),
+          role: v.optional(v.string()),
+          confidence: v.number(),
+        }))),
+        locations: v.optional(v.array(v.string())),
       })),
+      
+      // Classification-specific nested data
+      profileData: v.optional(v.object({
+        personalInfo: v.optional(v.array(v.string())),
+        workInfo: v.optional(v.array(v.string())),
+        preferences: v.optional(v.array(v.string())),
+        serviceProviders: v.optional(v.array(v.string())),
+        extractionConfidence: v.optional(v.number()),
+      })),
+      
+      memoryData: v.optional(v.object({
+        keywords: v.optional(v.array(v.string())),
+        entities: v.optional(v.array(v.string())),
+        relationships: v.optional(v.array(v.string())),
+        sentiment: v.optional(v.string()),
+        emotionalContext: v.optional(v.string()),
+      })),
+      
+      experienceData: v.optional(v.object({
+        scheduledDate: v.optional(v.number()),
+        participants: v.optional(v.array(v.string())),
+        location: v.optional(v.string()),
+        status: v.optional(v.string()),
+        priority: v.optional(v.string()),
+      })),
+      
       metadata: v.object({
         importance: v.number(),
         emotionalContext: v.string(),
@@ -351,17 +476,19 @@ export const storeThreeTierMemory = mutation({
     embedding: v.array(v.number()),
   },
   handler: async (ctx, args) => {
-    // Cast to proper TypeScript interface  
-    const extractedContent = args.extractedContent as ExtractedContent;
+    const extractedContent = args.extractedContent as any;
     
-    // Create summary based on classification type
-    const summary = generateThreeTierSummary(extractedContent, args.content);
+    // Create summary based on classification type and universal entities
+    const summary = generateEnhancedSummary(extractedContent, args.content);
     
-    // Generate keywords based on extracted content
-    const keywords = extractKeywordsFromThreeTier(extractedContent);
+    // Generate keywords from universal entities and classification-specific data
+    const keywords = extractUniversalKeywords(extractedContent);
     
-    // Determine entities array for vector search
-    const entities = extractEntitiesArray(extractedContent);
+    // Generate entities array from universal entity extraction
+    const entities = extractUniversalEntitiesArray(extractedContent);
+    
+    // Determine memory type from classification and content
+    const memoryType = inferMemoryTypeFromClassification(extractedContent.classification, extractedContent);
     
     const memoryId = await ctx.db.insert('memories', {
       userId: args.userId,
@@ -370,22 +497,56 @@ export const storeThreeTierMemory = mutation({
       sourceType: 'message',
       sourceId: args.messageId,
       context: args.context,
-      memoryType: inferThreeTierMemoryType(extractedContent),
+      memoryType: memoryType,
       importance: extractedContent.metadata.importance,
+      
+      // THREE-TIER CLASSIFICATION SYSTEM (Enhanced Single Table)
+      classification: extractedContent.classification,
+      
+      // UNIVERSAL FIELDS (all classifications get these)
+      resolvedDates: extractedContent.resolvedDates || [],
+      extractedEntities: extractedContent.extractedEntities || {},
+      
+      // CLASSIFICATION-SPECIFIC NESTED DATA
+      profileData: extractedContent.profileData || null,
+      memoryData: extractedContent.memoryData || null,
+      experienceData: extractedContent.experienceData || null,
+      
+      // Vector embedding for semantic search
       embedding: args.embedding,
+      
+      // Legacy fields (backward compatibility)
       entities: entities,
       keywords: keywords,
       sentiment: convertEmotionalContextToSentiment(extractedContent.metadata.emotionalContext),
+      extractedData: extractedContent, // Keep full data for backward compatibility
+      
+      // Usage tracking
       accessCount: 0,
       isActive: true,
+      
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      // Store three-tier classification for future use
-      classification: extractedContent.classification,
-      extractedData: extractedContent,
     });
 
     return memoryId;
+  },
+});
+
+// Keep old function for backward compatibility
+export const storeThreeTierMemory = mutation({
+  args: {
+    userId: v.id("users"),
+    content: v.string(),
+    messageId: v.string(),
+    conversationId: v.string(),
+    context: v.string(),
+    extractedContent: v.any(),
+    embedding: v.array(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Redirect to enhanced function
+    return await ctx.runMutation(api.memoryExtraction.storeEnhancedMemory, args);
   },
 });
 
@@ -447,7 +608,462 @@ export const storeExtractedMemory = mutation({
 });
 
 /**
- * THREE-TIER HELPER FUNCTIONS
+ * THREE-TIER MUTATION FUNCTIONS
+ * These mutations handle database operations for specialized processing
+ */
+
+// Update user profile with extracted biographical data
+export const updateUserProfileMutation = mutation({
+  args: {
+    userId: v.id("users"),
+    profileEntities: v.object({
+      personalInfo: v.array(v.string()),
+      workInfo: v.array(v.string()),
+      preferences: v.array(v.string()),
+      serviceProviders: v.array(v.string()),
+    }),
+    context: v.string(),
+  },
+  handler: async (ctx, args): Promise<boolean> => {
+    try {
+      console.log('👤 THREE-TIER: Updating user profile...', args.profileEntities);
+      
+      // Check if user profile exists
+      const existingProfile = await ctx.db
+        .query('profiles')
+        .filter((q: any) => q.eq(q.field('userId'), args.userId))
+        .first();
+      
+      const profileUpdates: any = {
+        personalInfo: args.profileEntities.personalInfo,
+        workInfo: args.profileEntities.workInfo,
+        preferences: args.profileEntities.preferences,
+        serviceProviders: args.profileEntities.serviceProviders,
+        lastUpdated: Date.now(),
+        extractionConfidence: 0.8,
+      };
+      
+      if (existingProfile) {
+        // Update existing profile
+        await ctx.db.patch(existingProfile._id, {
+          ...profileUpdates,
+          updatedAt: Date.now(),
+        });
+      } else {
+        // Create new profile
+        await ctx.db.insert('profiles', {
+          userId: args.userId,
+          ...profileUpdates,
+          completionScore: 60, // Initial score
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+      }
+      
+      console.log('✅ THREE-TIER: Profile updated successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ THREE-TIER: Profile update failed:', error);
+      return false;
+    }
+  },
+});
+
+// Create experience record from extracted data
+export const createExperienceMutation = mutation({
+  args: {
+    userId: v.id("users"),
+    experienceEntities: v.object({
+      who: v.array(v.string()),
+      what: v.array(v.string()),
+      when: v.array(v.string()),
+      where: v.array(v.string()),
+      why: v.array(v.string()),
+      how: v.array(v.string()),
+      resolvedDates: v.array(v.object({
+        original: v.string(),
+        type: v.string(),
+        value: v.optional(v.string()),
+        start: v.optional(v.string()),
+        end: v.optional(v.string()),
+        confidence: v.number(),
+      })),
+    }),
+    context: v.string(),
+  },
+  handler: async (ctx, args): Promise<any> => {
+    try {
+      console.log('📅 THREE-TIER: Creating experience record...', args.experienceEntities);
+      
+      const experienceId = await ctx.db.insert('experiences', {
+        userId: args.userId,
+        title: args.experienceEntities.what[0] || 'Unnamed Experience',
+        description: `${args.experienceEntities.what.join(', ')}`,
+        context: args.context,
+        status: 'pending',
+        participantNames: args.experienceEntities.who,
+        locationName: args.experienceEntities.where[0] || null,
+        resolvedDates: args.experienceEntities.resolvedDates,
+        originalTimeReferences: args.experienceEntities.when,
+        extractedEntities: args.experienceEntities,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      
+      console.log('✅ THREE-TIER: Experience created:', experienceId);
+      return experienceId;
+    } catch (error) {
+      console.error('❌ THREE-TIER: Experience creation failed:', error);
+      return null;
+    }
+  },
+});
+
+// Generate hidden system task for proactive intelligence
+export const generateSystemTaskMutation = mutation({
+  args: {
+    userId: v.id("users"),
+    experienceId: v.id("experiences"),
+    extractedContent: v.any(), // Full extracted content for task generation
+  },
+  handler: async (ctx, args): Promise<any> => {
+    try {
+      console.log('🤖 THREE-TIER: Generating system task for proactive intelligence...');
+      
+      const experienceEntities = args.extractedContent.experienceEntities;
+      const resolvedDates = experienceEntities?.resolvedDates || [];
+      
+      if (resolvedDates.length === 0) {
+        console.log('⏭️ THREE-TIER: No resolved dates, skipping system task');
+        return null;
+      }
+      
+      // Calculate appropriate follow-up timing
+      const primaryDate = resolvedDates.find((d: any) => d.confidence > 0.7) || resolvedDates[0];
+      const followUpTiming = calculateFollowUpTiming(experienceEntities.what[0] || '', primaryDate);
+      
+      const systemTaskId = await ctx.db.insert('system_tasks', {
+        userId: args.userId,
+        experienceId: args.experienceId,
+        taskType: 'proactive_followup',
+        description: `Follow up on: ${experienceEntities.what.join(', ')}`,
+        priority: args.extractedContent.metadata.priority,
+        triggerDate: followUpTiming.triggerDate,
+        status: 'pending',
+        isHidden: true, // Hidden from user - magical UX
+        metadata: {
+          originalExperience: experienceEntities.what[0],
+          participants: experienceEntities.who,
+          expectedTiming: followUpTiming,
+          extractedContent: args.extractedContent,
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      
+      console.log('✅ THREE-TIER: System task created:', systemTaskId);
+      return systemTaskId;
+    } catch (error) {
+      console.error('❌ THREE-TIER: System task creation failed:', error);
+      return null;
+    }
+  },
+});
+
+/**
+ * ENHANCED SINGLE TABLE MUTATION FUNCTIONS
+ */
+
+// Process extracted people for smart contact creation
+export const processExtractedContacts = mutation({
+  args: {
+    userId: v.id("users"),
+    extractedPeople: v.array(v.object({
+      name: v.string(),
+      relationship: v.optional(v.string()),
+      confidence: v.number(),
+    })),
+    memoryId: v.id("memories"),
+    context: v.string(),
+  },
+  handler: async (ctx, args): Promise<number> => {
+    let contactsCreated = 0;
+    
+    for (const person of args.extractedPeople) {
+      try {
+        // Check if contact already exists
+        const existingContact = await ctx.db
+          .query('contacts')
+          .withIndex('by_name_type')
+          .filter(q => q.and(
+            q.eq(q.field('name'), person.name),
+            q.eq(q.field('userId'), args.userId)
+          ))
+          .first();
+        
+        if (existingContact) {
+          // Update existing contact with new interaction
+          await ctx.db.patch(existingContact._id, {
+            experienceCount: existingContact.experienceCount + 1,
+            lastInteraction: Date.now(),
+            notes: existingContact.notes + `\nMentioned in memory ${args.memoryId}`,
+            updatedAt: Date.now(),
+          });
+          console.log(`✅ Updated existing contact: ${person.name}`);
+        } else {
+          // Create new contact with smart scope suggestion
+          const suggestedScope = suggestContactScope(person.relationship || 'unknown');
+          
+          const contactId = await ctx.db.insert('contacts', {
+            userId: args.userId,
+            name: person.name,
+            type: inferContactType(person.relationship || 'unknown'),
+            context: args.context,
+            
+            // Family-aware scoping
+            scope: 'personal', // Start as personal, can be elevated later
+            suggestedScope: suggestedScope.scope,
+            scopeConfidence: suggestedScope.confidence,
+            
+            // Basic relationship info
+            relationships: [{
+              userId: args.userId,
+              relationship: person.relationship || 'unknown',
+              notes: `First mentioned in memory ${args.memoryId}`,
+              addedAt: Date.now(),
+            }],
+            
+            // Contact completion tracking
+            completionStatus: 'incomplete',
+            completionScore: calculateInitialCompletionScore(person),
+            completionPriority: prioritizeContactCompletion(person.relationship || 'unknown'),
+            
+            // Basic fields
+            experienceCount: 1,
+            averageRating: 0,
+            lastInteraction: Date.now(),
+            trustLevel: 'unknown',
+            
+            // Discovery tracking
+            discoveryMethod: 'conversation',
+            firstMention: Date.now(),
+            notes: `Discovered through AI extraction. Relationship: ${person.relationship || 'unknown'}. Confidence: ${person.confidence}`,
+            originalUserId: args.userId,
+            
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          });
+          
+          contactsCreated++;
+          console.log(`✅ Created new contact: ${person.name} (${person.relationship})`);
+        }
+      } catch (error) {
+        console.error(`❌ Failed to process contact ${person.name}:`, error);
+      }
+    }
+    
+    return contactsCreated;
+  },
+});
+
+/**
+ * ENHANCED HELPER FUNCTIONS FOR SINGLE TABLE SYSTEM
+ */
+
+// Generate enhanced summary from universal entities and classification data
+function generateEnhancedSummary(extractedContent: any, originalContent: string): string {
+  const { classification, extractedEntities } = extractedContent;
+  
+  const parts: string[] = [];
+  
+  // Add people
+  if (extractedEntities?.people?.length) {
+    const peopleStr = extractedEntities.people.map((p: any) => 
+      p.relationship ? `${p.name} (${p.relationship})` : p.name
+    ).join(', ');
+    parts.push(`People: ${peopleStr}`);
+  }
+  
+  // Add organizations/locations
+  if (extractedEntities?.organizations?.length) {
+    const orgsStr = extractedEntities.organizations.map((o: any) => 
+      o.type ? `${o.name} (${o.type})` : o.name
+    ).join(', ');
+    parts.push(`Organizations: ${orgsStr}`);
+  }
+  
+  if (extractedEntities?.locations?.length) {
+    parts.push(`Locations: ${extractedEntities.locations.join(', ')}`);
+  }
+  
+  // Add classification-specific summary
+  if (classification === 'PROFILE' && extractedContent.profileData) {
+    const pd = extractedContent.profileData;
+    if (pd.personalInfo?.length) parts.push(`Personal: ${pd.personalInfo.join(', ')}`);
+    if (pd.workInfo?.length) parts.push(`Work: ${pd.workInfo.join(', ')}`);
+  } else if (classification === 'MEMORY' && extractedContent.memoryData) {
+    const md = extractedContent.memoryData;
+    if (md.keywords?.length) parts.push(`Keywords: ${md.keywords.join(', ')}`);
+  } else if (classification === 'EXPERIENCE' && extractedContent.experienceData) {
+    const ed = extractedContent.experienceData;
+    if (ed.participants?.length) parts.push(`Participants: ${ed.participants.join(', ')}`);
+    if (ed.location) parts.push(`Location: ${ed.location}`);
+  }
+  
+  return parts.length > 0 ? parts.join(' | ') : originalContent.substring(0, 100) + '...';
+}
+
+// Extract universal keywords from all entity types
+function extractUniversalKeywords(extractedContent: any): string[] {
+  const keywords: string[] = [];
+  
+  // From extracted entities
+  if (extractedContent.extractedEntities?.people?.length) {
+    extractedContent.extractedEntities.people.forEach((p: any) => {
+      keywords.push(p.name);
+      if (p.relationship) keywords.push(p.relationship);
+    });
+  }
+  
+  if (extractedContent.extractedEntities?.organizations?.length) {
+    extractedContent.extractedEntities.organizations.forEach((o: any) => {
+      keywords.push(o.name);
+      if (o.type) keywords.push(o.type);
+    });
+  }
+  
+  if (extractedContent.extractedEntities?.locations?.length) {
+    keywords.push(...extractedContent.extractedEntities.locations);
+  }
+  
+  // From classification-specific data
+  if (extractedContent.memoryData?.keywords?.length) {
+    keywords.push(...extractedContent.memoryData.keywords);
+  }
+  
+  if (extractedContent.profileData?.workInfo?.length) {
+    keywords.push(...extractedContent.profileData.workInfo);
+  }
+  
+  return keywords.filter(Boolean).slice(0, 20); // Limit to 20 keywords
+}
+
+// Extract universal entities array for legacy compatibility
+function extractUniversalEntitiesArray(extractedContent: any): string[] {
+  const entities: string[] = [];
+  
+  if (extractedContent.extractedEntities?.people?.length) {
+    entities.push(...extractedContent.extractedEntities.people.map((p: any) => p.name));
+  }
+  
+  if (extractedContent.extractedEntities?.organizations?.length) {
+    entities.push(...extractedContent.extractedEntities.organizations.map((o: any) => o.name));
+  }
+  
+  if (extractedContent.extractedEntities?.locations?.length) {
+    entities.push(...extractedContent.extractedEntities.locations);
+  }
+  
+  return entities.filter(Boolean).slice(0, 15);
+}
+
+// Infer memory type from classification and content
+function inferMemoryTypeFromClassification(classification: string, extractedContent: any): string {
+  switch (classification) {
+    case 'PROFILE':
+      return 'profile';
+    case 'EXPERIENCE':
+      if (extractedContent.experienceData?.participants?.some((p: string) => 
+        p.toLowerCase().includes('doctor') || p.toLowerCase().includes('dentist'))) {
+        return 'health_maintenance';
+      }
+      return 'experience';
+    case 'MEMORY':
+    default:
+      if (extractedContent.memoryData?.sentiment === 'positive') {
+        return 'positive_experience';
+      }
+      return 'general';
+  }
+}
+
+// Smart contact scope suggestion based on relationship type
+function suggestContactScope(relationship: string): {scope: string, confidence: number} {
+  const rel = relationship.toLowerCase();
+  
+  // High confidence family suggestions
+  if (['doctor', 'dentist', 'physician', 'pediatrician'].some(r => rel.includes(r))) {
+    return { scope: 'family', confidence: 0.9 };
+  }
+  
+  if (['restaurant', 'mechanic', 'plumber', 'electrician'].some(r => rel.includes(r))) {
+    return { scope: 'family', confidence: 0.8 };
+  }
+  
+  // High confidence personal suggestions
+  if (['friend', 'colleague', 'coworker', 'boss', 'manager'].some(r => rel.includes(r))) {
+    return { scope: 'personal', confidence: 0.9 };
+  }
+  
+  // Medium confidence suggestions
+  if (['mother', 'father', 'mom', 'dad', 'parent'].some(r => rel.includes(r))) {
+    return { scope: 'family', confidence: 0.7 };
+  }
+  
+  // Default to personal with low confidence
+  return { scope: 'personal', confidence: 0.3 };
+}
+
+// Infer contact type from relationship
+function inferContactType(relationship: string): string {
+  const rel = relationship.toLowerCase();
+  
+  if (['doctor', 'dentist', 'physician'].some(r => rel.includes(r))) return 'medical';
+  if (['restaurant', 'cafe', 'bar'].some(r => rel.includes(r))) return 'restaurant';
+  if (['friend', 'buddy', 'pal'].some(r => rel.includes(r))) return 'friend';
+  if (['colleague', 'coworker', 'boss'].some(r => rel.includes(r))) return 'professional';
+  if (['mechanic', 'plumber', 'electrician'].some(r => rel.includes(r))) return 'service';
+  if (['mother', 'father', 'parent', 'sibling'].some(r => rel.includes(r))) return 'family';
+  
+  return 'general';
+}
+
+// Calculate initial completion score for contact
+function calculateInitialCompletionScore(person: any): number {
+  let score = 0;
+  
+  // Have name
+  if (person.name) score += 20;
+  
+  // Have relationship
+  if (person.relationship && person.relationship !== 'unknown') score += 30;
+  
+  // High confidence extraction
+  if (person.confidence > 0.8) score += 20;
+  
+  return score;
+}
+
+// Prioritize contact completion based on relationship type
+function prioritizeContactCompletion(relationship: string): string {
+  const rel = relationship.toLowerCase();
+  
+  // High priority - service providers and medical
+  if (['doctor', 'dentist', 'mechanic', 'plumber'].some(r => rel.includes(r))) {
+    return 'high';
+  }
+  
+  // Medium priority - frequently mentioned contacts
+  if (['friend', 'colleague', 'restaurant'].some(r => rel.includes(r))) {
+    return 'medium';
+  }
+  
+  // Low priority - others
+  return 'low';
+}
+
+/**
+ * THREE-TIER HELPER FUNCTIONS (Legacy)
  */
 
 // Create intelligent fallback when AI parsing fails

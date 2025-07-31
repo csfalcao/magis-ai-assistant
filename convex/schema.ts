@@ -472,17 +472,70 @@ export default defineSchema({
     memoryType: v.string(), // 'fact', 'preference', 'experience', 'skill', 'relationship'
     importance: v.number(), // 1-10 importance score
     
-    // THREE-TIER CLASSIFICATION SYSTEM
-    classification: v.optional(v.string()), // 'PROFILE', 'MEMORY', 'EXPERIENCE'
-    extractedData: v.optional(v.any()), // Store the full extracted content structure
+    // THREE-TIER CLASSIFICATION SYSTEM (Enhanced Single Table)
+    classification: v.string(), // 'PROFILE', 'MEMORY', 'EXPERIENCE' - now required
+    
+    // UNIVERSAL DATE RESOLUTION (all classifications)
+    resolvedDates: v.optional(v.array(v.object({
+      original: v.string(), // "next Friday", "Dec 29", "last night"
+      type: v.string(), // "date" | "range"
+      value: v.optional(v.string()), // "2025-08-08" (YYYY-MM-DD)
+      start: v.optional(v.string()), // "2025-08-04" for ranges
+      end: v.optional(v.string()), // "2025-08-10" for ranges  
+      timestamp: v.optional(v.number()), // Unix milliseconds UTC
+      confidence: v.number(), // 0-1 AI confidence
+    }))),
+    
+    // UNIVERSAL ENTITY EXTRACTION (all classifications)
+    extractedEntities: v.optional(v.object({
+      people: v.optional(v.array(v.object({
+        name: v.string(),
+        relationship: v.optional(v.string()), // "friend", "doctor", "colleague"
+        confidence: v.number(),
+      }))),
+      organizations: v.optional(v.array(v.object({
+        name: v.string(),
+        type: v.optional(v.string()), // "restaurant", "company", "hospital"
+        role: v.optional(v.string()), // "workplace", "location", "service"
+        confidence: v.number(),
+      }))),
+      locations: v.optional(v.array(v.string())), // ["downtown", "Miami", "Luigi's"]
+    })),
+    
+    // CLASSIFICATION-SPECIFIC NESTED DATA
+    profileData: v.optional(v.object({
+      personalInfo: v.optional(v.array(v.string())), // ["Birthday: December 29th"]
+      workInfo: v.optional(v.array(v.string())), // ["Company: Google", "Position: SWE"]
+      preferences: v.optional(v.array(v.string())), // ["Diet: Vegetarian"]
+      serviceProviders: v.optional(v.array(v.string())), // ["Dr. Smith - Dentist"]
+      extractionConfidence: v.optional(v.number()),
+    })),
+    
+    memoryData: v.optional(v.object({
+      keywords: v.optional(v.array(v.string())), // Important concepts
+      entities: v.optional(v.array(v.string())), // People, places, things
+      relationships: v.optional(v.array(v.string())), // ["Sarah - friend"]
+      sentiment: v.optional(v.string()), // "positive", "negative", "neutral"
+      emotionalContext: v.optional(v.string()),
+    })),
+    
+    experienceData: v.optional(v.object({
+      scheduledDate: v.optional(v.number()), // Primary date timestamp
+      participants: v.optional(v.array(v.string())), // People involved
+      location: v.optional(v.string()), // Where it happens
+      status: v.optional(v.string()), // "pending", "completed", "cancelled"
+      systemTasks: v.optional(v.array(v.string())), // Generated task IDs
+      priority: v.optional(v.string()), // "low", "medium", "high", "urgent"
+    })),
     
     // Vector embedding for semantic search
     embedding: v.array(v.number()), // Voyage-3.5-lite embeddings (1024 dimensions)
     
-    // Memory metadata
+    // Legacy fields (backward compatibility)
     entities: v.optional(v.array(v.string())), // Extracted entities (people, places, things)
     keywords: v.optional(v.array(v.string())), // Extracted keywords
     sentiment: v.optional(v.number()), // -1 to 1 sentiment score
+    extractedData: v.optional(v.any()), // Legacy extracted content structure
     
     // Usage tracking
     accessCount: v.number(), // How many times this memory was retrieved
@@ -597,14 +650,26 @@ export default defineSchema({
     .index('by_scheduled', ['userId', 'scheduledAt'])
     .index('by_follow_up', ['userId', 'followUpEnabled', 'followUpCompleted']),
 
-  // Contact management with completion priority
+  // Contact management with family-aware smart scoping
   contacts: defineTable({
-    userId: v.id('users'),
+    userId: v.id('users'), // Original user who created the contact
     
     // Basic contact information
     name: v.string(),
     type: v.string(), // 'dentist', 'restaurant', 'doctor', 'friend', 'business'
     context: v.string(), // 'work', 'personal', 'family'
+    
+    // FAMILY-AWARE SCOPING SYSTEM
+    scope: v.string(), // 'personal', 'family', 'pending_family'
+    familyId: v.optional(v.id('families')), // Link to family if scope is 'family'
+    
+    // Multi-user relationships (for family contacts)
+    relationships: v.optional(v.array(v.object({
+      userId: v.id('users'),
+      relationship: v.string(), // "patient", "friend", "customer"
+      notes: v.optional(v.string()), // User-specific notes
+      addedAt: v.number(),
+    }))),
     
     // Contact details (essential data)
     phone: v.optional(v.string()),
@@ -624,10 +689,19 @@ export default defineSchema({
     lastInteraction: v.optional(v.number()),
     trustLevel: v.string(), // 'unknown', 'researched', 'tried', 'trusted'
     
-    // Discovery and notes
+    // Discovery and evolution tracking
     discoveryMethod: v.string(), // How we learned about them
     firstMention: v.number(),
     notes: v.string(), // Rich notes including experiences
+    
+    // Smart contact evolution
+    originalUserId: v.id('users'), // Who first mentioned this contact
+    elevatedToFamily: v.optional(v.number()), // When it became family contact
+    suggestedScope: v.optional(v.string()), // AI suggestion: "family" | "personal"
+    scopeConfidence: v.optional(v.number()), // 0-1 confidence in suggestion
+    
+    // Contact merging history
+    consolidatedFrom: v.optional(v.array(v.string())), // IDs of contacts merged into this one
     
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -635,7 +709,61 @@ export default defineSchema({
     .index('by_user', ['userId'])
     .index('by_user_type', ['userId', 'type'])
     .index('by_completion', ['userId', 'completionPriority'])
-    .index('by_trust', ['userId', 'trustLevel']),
+    .index('by_trust', ['userId', 'trustLevel'])
+    .index('by_family', ['familyId'])
+    .index('by_scope', ['scope'])
+    .index('by_name_type', ['name', 'type']), // For finding duplicate contacts
+
+  // Family groups for multi-user contact sharing
+  families: defineTable({
+    id: v.string(), // Custom family ID
+    name: v.string(), // "Smith Family"
+    adminUserId: v.id('users'), // Family admin/creator
+    
+    // Family members
+    members: v.array(v.object({
+      userId: v.id('users'),
+      role: v.string(), // "admin" | "member"
+      relationship: v.string(), // "self", "spouse", "parent", "child", "sibling"
+      displayName: v.optional(v.string()), // "Mom", "Dad", "Sister"
+      joinedAt: v.number(),
+      permissions: v.optional(v.object({
+        canInviteMembers: v.optional(v.boolean()),
+        canManageContacts: v.optional(v.boolean()),
+        canViewAllMemories: v.optional(v.boolean()),
+      })),
+    })),
+    
+    // Family sharing settings
+    settings: v.object({
+      contactSharing: v.string(), // "smart" | "manual" | "off"  
+      healthSharing: v.optional(v.boolean()), // Share health contacts (dentists, doctors)
+      restaurantSharing: v.optional(v.boolean()), // Share restaurant/food contacts
+      workSharing: v.optional(v.boolean()), // Share work-related contacts
+      autoElevateContacts: v.optional(v.boolean()), // Auto-elevate matching contacts to family
+    }),
+    
+    // Family contact management
+    sharedContacts: v.optional(v.array(v.id('contacts'))), // Family-shared contact IDs
+    pendingContactMerges: v.optional(v.array(v.object({
+      contactIds: v.array(v.id('contacts')), // Contacts to potentially merge
+      suggestedName: v.string(),
+      confidence: v.number(),
+      proposedByUserId: v.id('users'),
+      createdAt: v.number(),
+    }))),
+    
+    // Family statistics
+    stats: v.optional(v.object({
+      totalSharedContacts: v.optional(v.number()),
+      totalMembers: v.optional(v.number()),
+      lastActivity: v.optional(v.number()),
+    })),
+    
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_admin', ['adminUserId']),
 
   // Proactive messages for follow-ups and contact completion
   proactiveMessages: defineTable({
