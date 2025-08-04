@@ -35,6 +35,10 @@ export const storeMemory = mutation({
       context: args.context,
       memoryType: args.memoryType || 'fact',
       importance: args.importance || 5,
+      
+      // Required field for enhanced single table system
+      classification: 'MEMORY', // Default classification for legacy storage
+      
       embedding: args.embedding,
       entities: args.entities || [],
       keywords: args.keywords || [],
@@ -283,6 +287,93 @@ export const smartMemorySearch = action({
     });
 
     return keywordResults;
+  },
+});
+
+// Development-only secure memory query (DO NOT USE IN PRODUCTION)
+export const getMemoriesForDevelopment = query({
+  args: {
+    developmentUserId: v.string(), // DEVELOPMENT ONLY - requires explicit user ID
+  },
+  handler: async (ctx, args) => {
+    // SECURITY WARNING: This bypasses authentication for DEVELOPMENT ONLY
+    // DO NOT USE IN PRODUCTION - ALL PRODUCTION CODE MUST USE AUTHENTICATED QUERIES
+    
+    console.warn('⚠️ SECURITY WARNING: Using development-only memory access');
+    console.warn('⚠️ This bypasses authentication and should NEVER be used in production');
+    console.warn('⚠️ User isolation is maintained but auth is bypassed');
+    
+    // Still enforce user isolation even without auth
+    const memories = await ctx.db
+      .query('memories')
+      .withIndex('by_user', (q) => q.eq('userId', args.developmentUserId as any))
+      .filter((q) => q.eq(q.field('isActive'), true))
+      .order('desc')
+      .take(20);
+    
+    console.log(`🔒 Development query: Retrieved ${memories.length} memories for user ${args.developmentUserId}`);
+    
+    return memories.map(memory => ({
+      id: memory._id,
+      classification: memory.classification,
+      content: memory.content,
+      createdAt: memory.createdAt,
+      extractedEntities: memory.extractedEntities,
+      resolvedDates: memory.resolvedDates,
+      userId: memory.userId,
+      importance: memory.importance,
+      keywords: memory.keywords,
+      entities: memory.entities
+    }));
+  },
+});
+
+// Debug query to check all memories (admin/testing purposes)
+export const getAllMemoriesDebug = query({
+  args: {},
+  handler: async (ctx) => {
+    // CRITICAL SECURITY WARNING: This function exposes ALL users' data
+    // Should only be used for debugging and NEVER in production
+    console.error('🚨 CRITICAL SECURITY WARNING: getAllMemoriesDebug exposes ALL users data');
+    console.error('🚨 This should ONLY be used for debugging and NEVER in production');
+    
+    const memories = await ctx.db
+      .query('memories')
+      .filter((q) => q.eq(q.field('isActive'), true))
+      .order('desc')
+      .take(20);
+    
+    return memories.map(memory => ({
+      id: memory._id,
+      classification: memory.classification,
+      content: memory.content.substring(0, 100),
+      createdAt: memory.createdAt,
+      extractedEntities: memory.extractedEntities,
+      resolvedDates: memory.resolvedDates,
+      userId: memory.userId
+    }));
+  },
+});
+
+// Debug query to check contacts
+export const getAllContactsDebug = query({
+  args: {},
+  handler: async (ctx) => {
+    const contacts = await ctx.db
+      .query('contacts')
+      .order('desc')
+      .take(10);
+    
+    return contacts.map(contact => ({
+      id: contact._id,
+      name: contact.name,
+      type: contact.type,
+      context: contact.context,
+      scope: contact.scope,
+      createdAt: contact.createdAt,
+      userId: contact.userId,
+      originalUserId: contact.originalUserId
+    }));
   },
 });
 

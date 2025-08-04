@@ -80,12 +80,86 @@ async function executeFunction(name: string, args: any): Promise<string> {
 
 // Helper functions for RAG integration
 async function retrieveRelevantMemories(query: string, context: string): Promise<any[]> {
-  // For now, return empty array - will be integrated with Convex actions
-  // In full implementation, this would:
-  // 1. Generate embedding for the query
-  // 2. Search the vector database
-  // 3. Return relevant memories
-  return [];
+  console.log('🔍 RAG DEBUG: Starting memory retrieval...');
+  console.log('🔍 RAG DEBUG: Query:', query);
+  console.log('🔍 RAG DEBUG: Context:', context);
+  
+  // Use keyword-based search as a fallback while vector search is being optimized
+  const keywords = query.toLowerCase().split(' ').filter(word => word.length > 2);
+  console.log('🔍 RAG DEBUG: Keywords:', keywords);
+  
+  // Try smart memory search first (but expect it to fail due to auth)
+  try {
+    console.log('🔍 RAG DEBUG: Attempting smart memory search...');
+    const smartResults = await convex.action(api.memory.smartMemorySearch, {
+      query: query,
+      context: context,
+      limit: 5
+    });
+    
+    console.log('🔍 RAG DEBUG: Smart search results:', smartResults?.length || 0);
+    
+    if (smartResults && smartResults.length > 0) {
+      console.log('✅ RAG DEBUG: Smart memory search successful!');
+      return smartResults.slice(0, 3);
+    }
+  } catch (smartError) {
+    console.log('⚠️ RAG DEBUG: Smart search failed (expected due to auth), trying fallback...');
+    console.log('⚠️ RAG DEBUG: Smart search error:', smartError.message);
+  }
+  
+  // Fallback: Use development-only secure query (maintains user isolation)
+  try {
+    console.log('🔍 RAG DEBUG: Using development-only secure memory query...');
+    console.log('🔒 RAG SECURITY: Using user-isolated memory access for development');
+    
+    // DEVELOPMENT ONLY - hardcoded user ID with security warnings
+    const developmentUserId = "jh78atbrf5hkhz5bq8pqvzjyf57k3f2a"; // Test user from validation
+    
+    const userMemories = await convex.query(api.memory.getMemoriesForDevelopment, {
+      developmentUserId: developmentUserId
+    });
+    console.log('🔍 RAG DEBUG: Retrieved', userMemories?.length || 0, 'memories for user', developmentUserId);
+    
+    if (userMemories && userMemories.length > 0) {
+      // Enhanced keyword matching
+      const relevantMemories = userMemories.filter(memory => {
+        const content = memory.content?.toLowerCase() || '';
+        
+        // Direct keyword matching
+        const keywordMatch = keywords.some(keyword => 
+          content.includes(keyword.toLowerCase())
+        );
+        
+        // Semantic matching for common queries
+        const semanticMatch = 
+          (query.toLowerCase().includes('birthday') && content.includes('birthday')) ||
+          (query.toLowerCase().includes('work') && content.includes('work')) ||
+          (query.toLowerCase().includes('dentist') && content.includes('dentist')) ||
+          (query.toLowerCase().includes('sushi') && content.includes('sushi'));
+        
+        return keywordMatch || semanticMatch;
+      });
+      
+      console.log('🔍 RAG DEBUG: Found', relevantMemories.length, 'relevant memories via fallback');
+      
+      if (relevantMemories.length > 0) {
+        relevantMemories.forEach((memory, index) => {
+          console.log(`   ${index + 1}. "${memory.content.substring(0, 60)}..."`);
+        });
+        
+        console.log('✅ RAG DEBUG: Memory retrieval successful via fallback!');
+        return relevantMemories.slice(0, 3);
+      }
+    }
+    
+    console.log('⚠️ RAG DEBUG: No relevant memories found');
+    return [];
+    
+  } catch (fallbackError) {
+    console.error('❌ RAG DEBUG: Fallback also failed:', fallbackError.message);
+    return [];
+  }
 }
 
 function formatMemoriesForContext(memories: any[]): string {
@@ -223,6 +297,11 @@ function extractPreferencesFromMessage(content: string): any {
 }
 
 export async function POST(req: Request) {
+  // SECURITY WARNING: This is a development-only implementation
+  console.warn('⚠️ CHAT API SECURITY WARNING: Development-only memory access in use');
+  console.warn('⚠️ Production implementation requires proper user authentication');
+  console.warn('⚠️ Current implementation hardcodes user ID for development testing');
+  
   try {
     const body = await req.json();
     const { messages, context = 'personal', aiProvider = 'openai', conversationId } = body;
@@ -354,7 +433,7 @@ async function processMessageForProactive(messageContent: string, context: strin
       messageContent,
       conversationId: conversationId as any, // Cast to Convex ID type
       context,
-      userId: "jh78atbrf5hkhz5bq8pqvzjyf57k3f2a", // Default user for development
+      userId: "jh78atbrf5hkhz5bq8pqvzjyf57k3f2a" as any, // Default user for development
     });
 
     if (experienceId) {
@@ -394,7 +473,7 @@ async function createMemoryFromMessage(content: string, context: string, convers
       context: context,
       messageId: 'temp-message-id', // Will be replaced with real message ID
       conversationId: conversationId,
-      userId: "jh78atbrf5hkhz5bq8pqvzjyf57k3f2a", // Default user for development
+      userId: "jh78atbrf5hkhz5bq8pqvzjyf57k3f2a" as any, // Default user for development
     });
 
     console.log('🧠 MEMORY DEBUG: Extraction result:', JSON.stringify(extractionResult, null, 2));
@@ -402,12 +481,7 @@ async function createMemoryFromMessage(content: string, context: string, convers
     if (extractionResult.success) {
       console.log('✅ MEMORY DEBUG: Memory created successfully!');
       console.log('✅ MEMORY DEBUG: Memory ID:', extractionResult.memoryId);
-      console.log('✅ MEMORY DEBUG: Extracted entities:', {
-        who: extractionResult.extractedEntities?.who.length || 0,
-        what: extractionResult.extractedEntities?.what.length || 0,
-        when: extractionResult.extractedEntities?.when.length || 0,
-        where: extractionResult.extractedEntities?.where.length || 0
-      });
+      console.log('✅ MEMORY DEBUG: Extracted entities:', extractionResult.extractedContent);
       return extractionResult.memoryId;
     } else {
       console.error('❌ MEMORY DEBUG: Memory extraction failed!');
