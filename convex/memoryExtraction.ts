@@ -46,9 +46,48 @@ interface ExperienceEntities {
   resolvedDates: ResolvedDate[]; // Processed temporal information
 }
 
+// Universal entity extraction structure
+interface UniversalEntities {
+  people?: Array<{
+    name: string;
+    relationship?: string;
+    confidence: number;
+  }>;
+  organizations?: Array<{
+    name: string;
+    type?: string;
+    role?: string;
+    confidence: number;
+  }>;
+  locations?: string[];
+}
+
 // Combined extraction result
 interface ExtractedContent {
   classification: ContentClassification;
+  resolvedDates?: ResolvedDate[];
+  extractedEntities?: UniversalEntities;
+  profileData?: {
+    personalInfo?: string[];
+    workInfo?: string[];
+    preferences?: string[];
+    serviceProviders?: string[];
+    extractionConfidence?: number;
+  };
+  memoryData?: {
+    keywords?: string[];
+    entities?: string[];
+    relationships?: string[];
+    sentiment?: string;
+    emotionalContext?: string;
+  };
+  experienceData?: {
+    scheduledDate?: number;
+    participants?: string[];
+    location?: string;
+    status?: string;
+    priority?: string;
+  };
   profileEntities?: ProfileEntities;
   memoryEntities?: MemoryEntities;
   experienceEntities?: ExperienceEntities;
@@ -110,6 +149,8 @@ Content: "${args.content}"
 Context: ${args.context}
 Timestamp: ${new Date(conversationTimestamp).toISOString()}
 
+CRITICAL: Return ONLY valid JSON. No explanatory text before or after.
+
 STEP 1: CLASSIFY the content type:
 - PROFILE: Biographical information about the user ("My birthday is Dec 29", "I work at Google", "I live in Miami")  
 - MEMORY: Past events, preferences, experiences ("I love Italian food", "Had great dinner last night", "Meeting went well")
@@ -161,12 +202,11 @@ IF EXPERIENCE: Extract event details
 - status: "pending"
 - priority: "medium"
 
-Return VALID JSON with this EXACT structure:
+RETURN ONLY THIS JSON STRUCTURE (no explanatory text):
 
 {
   "classification": "PROFILE|MEMORY|EXPERIENCE",
   
-  // UNIVERSAL fields (all classifications get these)
   "resolvedDates": [
     {
       "original": "Dec 29",
@@ -187,7 +227,6 @@ Return VALID JSON with this EXACT structure:
     "locations": ["downtown", "Miami"]
   },
   
-  // CLASSIFICATION-SPECIFIC nested data (only include relevant section)
   "profileData": {
     "personalInfo": ["Birthday: December 29th"],
     "workInfo": ["Company: Google"],
@@ -196,7 +235,6 @@ Return VALID JSON with this EXACT structure:
     "extractionConfidence": 0.9
   },
   
-  // OR for MEMORY classification:
   "memoryData": {
     "keywords": ["dinner", "restaurant", "great"],
     "entities": ["Sarah", "Luigi's"],
@@ -205,7 +243,6 @@ Return VALID JSON with this EXACT structure:
     "emotionalContext": "happy"
   },
   
-  // OR for EXPERIENCE classification:
   "experienceData": {
     "scheduledDate": 1754668800000,
     "participants": ["Dr. Smith"],
@@ -221,7 +258,9 @@ Return VALID JSON with this EXACT structure:
     "actionItems": [],
     "confidence": 0.9
   }
-}`;
+}
+
+IMPORTANT: Only include profileData, memoryData, OR experienceData based on classification. Return ONLY JSON.`;
 
     try {
       console.log('🤖 THREE-TIER DEBUG: Calling AI for classification and extraction...');
@@ -238,13 +277,29 @@ Return VALID JSON with this EXACT structure:
       
       let extractedContent: ExtractedContent;
       try {
-        // Clean up markdown code blocks if present
+        // Enhanced JSON extraction to handle explanatory text before JSON
         let cleanContent = extractionResult.content;
+        
+        console.log('🔍 AI RAW OUTPUT:', cleanContent.substring(0, 300));
+        
+        // Clean up markdown code blocks if present
         if (cleanContent.includes('```json')) {
           cleanContent = cleanContent.replace(/```json\s*/g, '').replace(/```\s*/g, '');
         }
         if (cleanContent.includes('```')) {
           cleanContent = cleanContent.replace(/```.*?\n/g, '').replace(/```/g, '');
+        }
+        
+        // Extract JSON from mixed content (handles explanatory text before JSON)
+        // Look for the last complete JSON object in the string
+        let jsonStart = cleanContent.indexOf('{');
+        let jsonEnd = cleanContent.lastIndexOf('}');
+        
+        if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+          cleanContent = cleanContent.substring(jsonStart, jsonEnd + 1);
+          console.log('🎯 EXTRACTED JSON:', cleanContent.substring(0, 200));
+        } else {
+          console.log('⚠️ No JSON pattern found in AI response');
         }
         
         const parsed = JSON.parse(cleanContent);
@@ -342,7 +397,12 @@ Return VALID JSON with this EXACT structure:
         try {
           profileUpdated = await ctx.runMutation(api.memoryExtraction.updateUserProfileMutation, {
             userId: userId!,
-            profileEntities: extractedContent.profileEntities!,
+            profileEntities: {
+              personalInfo: extractedContent.profileData?.personalInfo || [],
+              workInfo: extractedContent.profileData?.workInfo || [],
+              preferences: extractedContent.profileData?.preferences || [],
+              serviceProviders: extractedContent.profileData?.serviceProviders || [],
+            },
             context: args.context
           });
         } catch (error) {
@@ -354,12 +414,12 @@ Return VALID JSON with this EXACT structure:
         try {
           experienceId = await ctx.runMutation(api.memoryExtraction.createExperienceMutation, {
             userId: userId!,
-            experienceEntities: extractedContent.experienceEntities!,
+            experienceEntities: extractedContent.experienceData!,
             context: args.context
           });
           
           // Generate hidden system task for proactive intelligence
-          if (experienceId && extractedContent.experienceEntities?.resolvedDates?.length) {
+          if (experienceId && extractedContent.experienceData?.scheduledDate) {
             systemTaskId = await ctx.runMutation(api.memoryExtraction.generateSystemTaskMutation, {
               userId: userId!,
               experienceId,
@@ -508,9 +568,9 @@ export const storeEnhancedMemory = mutation({
       extractedEntities: extractedContent.extractedEntities || {},
       
       // CLASSIFICATION-SPECIFIC NESTED DATA
-      profileData: extractedContent.profileData || null,
-      memoryData: extractedContent.memoryData || null,
-      experienceData: extractedContent.experienceData || null,
+      profileData: extractedContent.profileData || undefined,
+      memoryData: extractedContent.memoryData || undefined,
+      experienceData: extractedContent.experienceData || undefined,
       
       // Vector embedding for semantic search
       embedding: args.embedding,
@@ -544,7 +604,7 @@ export const storeThreeTierMemory = mutation({
     extractedContent: v.any(),
     embedding: v.array(v.number()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<any> => {
     // Redirect to enhanced function
     return await ctx.runMutation(api.memoryExtraction.storeEnhancedMemory, args);
   },
@@ -674,20 +734,11 @@ export const createExperienceMutation = mutation({
   args: {
     userId: v.id("users"),
     experienceEntities: v.object({
-      who: v.array(v.string()),
-      what: v.array(v.string()),
-      when: v.array(v.string()),
-      where: v.array(v.string()),
-      why: v.array(v.string()),
-      how: v.array(v.string()),
-      resolvedDates: v.array(v.object({
-        original: v.string(),
-        type: v.string(),
-        value: v.optional(v.string()),
-        start: v.optional(v.string()),
-        end: v.optional(v.string()),
-        confidence: v.number(),
-      })),
+      scheduledDate: v.optional(v.number()),
+      participants: v.optional(v.array(v.string())),
+      location: v.optional(v.string()),
+      status: v.optional(v.string()),
+      priority: v.optional(v.string()),
     }),
     context: v.string(),
   },
@@ -697,14 +748,13 @@ export const createExperienceMutation = mutation({
       
       const experienceId = await ctx.db.insert('experiences', {
         userId: args.userId,
-        title: args.experienceEntities.what[0] || 'Unnamed Experience',
-        description: `${args.experienceEntities.what.join(', ')}`,
+        title: `Scheduled ${args.experienceEntities.priority || 'Activity'}`,
+        description: `Location: ${args.experienceEntities.location || 'TBD'}, Participants: ${args.experienceEntities.participants?.join(', ') || 'None'}`,
         context: args.context,
-        status: 'pending',
-        participantNames: args.experienceEntities.who,
-        locationName: args.experienceEntities.where[0] || null,
-        resolvedDates: args.experienceEntities.resolvedDates,
-        originalTimeReferences: args.experienceEntities.when,
+        status: args.experienceEntities.status || 'pending',
+        participantNames: args.experienceEntities.participants || [],
+        locationName: args.experienceEntities.location || undefined,
+        scheduledAt: args.experienceEntities.scheduledDate || undefined,
         extractedEntities: args.experienceEntities,
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -1070,34 +1120,39 @@ function prioritizeContactCompletion(relationship: string): string {
 function createFallbackExtraction(content: string, classification: ContentClassification, timestamp: number): ExtractedContent {
   const lowerContent = content.toLowerCase();
   
+  // Basic keyword extraction for all classifications
+  const keywords = lowerContent.split(' ').filter(word => 
+    word.length > 3 && 
+    !['this', 'that', 'with', 'from', 'they', 'have', 'will', 'been', 'were'].includes(word)
+  ).slice(0, 10);
+  
   if (classification === "PROFILE") {
     return {
       classification,
-      profileEntities: {
+      profileData: {
         personalInfo: extractPersonalInfoFallback(lowerContent),
         workInfo: extractWorkInfoFallback(lowerContent),
         preferences: extractPreferencesFallback(lowerContent),
         serviceProviders: extractServiceProvidersFallback(lowerContent),
+        extractionConfidence: 0.5,
       },
       metadata: {
         importance: 6,
         emotionalContext: "neutral",
         priority: "medium",
         actionItems: [],
-        confidence: 0.5, // Lower confidence for fallback
+        confidence: 0.5,
       },
     };
   } else if (classification === "EXPERIENCE") {
     return {
       classification,
-      experienceEntities: {
-        who: extractWhoFallback(lowerContent),
-        what: extractWhatFallback(lowerContent),
-        when: extractWhenFallback(lowerContent),
-        where: extractWhereFallback(lowerContent),
-        why: [],
-        how: [],
-        resolvedDates: resolveDatesFallback(lowerContent, timestamp),
+      experienceData: {
+        scheduledDate: timestamp + (24 * 60 * 60 * 1000), // Default to tomorrow
+        participants: extractWhoFallback(lowerContent),
+        location: extractWhereFallback(lowerContent)[0] || undefined,
+        status: "pending",
+        priority: "medium",
       },
       metadata: {
         importance: 7,
@@ -1111,11 +1166,12 @@ function createFallbackExtraction(content: string, classification: ContentClassi
     // MEMORY fallback
     return {
       classification: "MEMORY",
-      memoryEntities: {
+      memoryData: {
         keywords: extractKeywordsFallback(lowerContent),
         entities: extractEntitiesFallback(lowerContent),
         relationships: [],
         sentiment: "neutral",
+        emotionalContext: "neutral",
       },
       metadata: {
         importance: 5,
@@ -1195,7 +1251,7 @@ async function createExperienceFromContent(ctx: any, userId: string, experienceE
       title: experienceEntities.what[0] || 'Unnamed Experience',
       description: `${experienceEntities.what.join(', ')}`,
       participantNames: experienceEntities.who,
-      locationName: experienceEntities.where[0] || null,
+      locationName: experienceEntities.where[0] || undefined,
       context,
       status: 'pending',
       resolvedDates: experienceEntities.resolvedDates,

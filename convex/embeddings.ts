@@ -17,37 +17,54 @@ export const generateEmbedding = action({
     text: v.string(),
   },
   handler: async (ctx, args) => {
-    try {
-      console.log('🚀 VOYAGE DEBUG: generateEmbedding called');
-      console.log('🚀 VOYAGE DEBUG: Text length:', args.text.length);
-      console.log('🚀 VOYAGE DEBUG: Text preview:', args.text.substring(0, 100));
-      
-      const response = await voyage.embed({
-        input: [args.text],
-        model: 'voyage-3.5-lite',
-        inputType: 'document',
-      });
+    const maxRetries = 3;
+    let lastError: any;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🚀 VOYAGE DEBUG: generateEmbedding attempt ${attempt}/${maxRetries}`);
+        console.log('🚀 VOYAGE DEBUG: Text length:', args.text.length);
+        console.log('🚀 VOYAGE DEBUG: Text preview:', args.text.substring(0, 100));
+        
+        const response = await voyage.embed({
+          input: [args.text],
+          model: 'voyage-3.5-lite',
+          inputType: 'document',
+        });
 
-      console.log('🚀 VOYAGE DEBUG: Response received');
-      console.log('🚀 VOYAGE DEBUG: Response structure:', {
-        hasData: !!response.data,
-        dataLength: response.data?.length || 0,
-        hasUsage: !!response.usage,
-        totalTokens: response.usage?.totalTokens || 0
-      });
+        console.log('🚀 VOYAGE DEBUG: Response received successfully');
+        console.log('🚀 VOYAGE DEBUG: Response structure:', {
+          hasData: !!response.data,
+          dataLength: response.data?.length || 0,
+          hasUsage: !!response.usage,
+          totalTokens: response.usage?.totalTokens || 0
+        });
 
-      const embedding = response.data?.[0]?.embedding || [];
-      console.log('🚀 VOYAGE DEBUG: Embedding generated, length:', embedding.length);
+        const embedding = response.data?.[0]?.embedding || [];
+        console.log('🚀 VOYAGE DEBUG: Embedding generated, length:', embedding.length);
 
-      return {
-        embedding: embedding,
-        tokens: response.usage?.totalTokens || 0,
-      };
-    } catch (error) {
-      console.error('❌ VOYAGE DEBUG: Error generating Voyage embedding:', error);
-      console.error('❌ VOYAGE DEBUG: Error details:', error instanceof Error ? error.stack : 'No stack');
-      throw new Error('Failed to generate embedding');
+        return {
+          embedding: embedding,
+          tokens: response.usage?.totalTokens || 0,
+        };
+      } catch (error) {
+        lastError = error;
+        console.error(`❌ VOYAGE DEBUG: Attempt ${attempt} failed:`, error);
+        console.error('❌ VOYAGE DEBUG: Error type:', error?.constructor?.name);
+        console.error('❌ VOYAGE DEBUG: Error message:', (error as any)?.message);
+        console.error('❌ VOYAGE DEBUG: Error code:', (error as any)?.code);
+        console.error('❌ VOYAGE DEBUG: Error status:', (error as any)?.status);
+        
+        if (attempt < maxRetries) {
+          const delay = attempt * 1000; // 1s, 2s, 3s
+          console.log(`⏳ VOYAGE DEBUG: Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
     }
+    
+    console.error('❌ VOYAGE DEBUG: All retries failed. Last error:', lastError);
+    throw new Error(`Failed to generate embedding after ${maxRetries} attempts: ${(lastError as any)?.message || 'Unknown error'}`);
   },
 });
 

@@ -148,6 +148,17 @@ export default function MemoryManagement() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
+                        {/* Enhanced Classification Badge */}
+                        {memory.classification && (
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            memory.classification === 'PROFILE' ? 'bg-blue-100 text-blue-800' :
+                            memory.classification === 'MEMORY' ? 'bg-green-100 text-green-800' :
+                            memory.classification === 'EXPERIENCE' ? 'bg-purple-100 text-purple-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {memory.classification}
+                          </span>
+                        )}
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(memory.memoryType)}`}>
                           {memory.memoryType}
                         </span>
@@ -186,9 +197,88 @@ export default function MemoryManagement() {
                     </p>
                   </div>
                   
-                  {memory.entities && memory.entities.length > 0 && (
+                  {/* Enhanced Universal Entity Extraction Display */}
+                  {memory.extractedEntities && (
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Entities</h4>
+                      <h4 className="font-medium text-gray-900 mb-2">Universal Entities</h4>
+                      <div className="space-y-2">
+                        {memory.extractedEntities.people?.length > 0 && (
+                          <div>
+                            <span className="text-xs text-gray-500 font-medium">👥 People:</span>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {memory.extractedEntities.people.map((person: any, index: number) => (
+                                <span 
+                                  key={index} 
+                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-800"
+                                >
+                                  {person.name} {person.relationship && `(${person.relationship})`}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {memory.extractedEntities.organizations?.length > 0 && (
+                          <div>
+                            <span className="text-xs text-gray-500 font-medium">🏢 Organizations:</span>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {memory.extractedEntities.organizations.map((org: any, index: number) => (
+                                <span 
+                                  key={index} 
+                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-green-50 text-green-800"
+                                >
+                                  {org.name} {org.type && `(${org.type})`}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {memory.extractedEntities.locations?.length > 0 && (
+                          <div>
+                            <span className="text-xs text-gray-500 font-medium">📍 Locations:</span>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {memory.extractedEntities.locations.map((location: string, index: number) => (
+                                <span 
+                                  key={index} 
+                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-yellow-50 text-yellow-800"
+                                >
+                                  {location}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Enhanced Date Resolution Display */}
+                  {memory.resolvedDates && memory.resolvedDates.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">📅 Resolved Dates</h4>
+                      <div className="space-y-1">
+                        {memory.resolvedDates.map((date: any, index: number) => (
+                          <div key={index} className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1">
+                            <span className="font-medium">"{date.original}"</span> → 
+                            {date.type === 'date' ? (
+                              <span className="ml-1">
+                                {date.value} {date.timestamp && `(${new Date(date.timestamp).toLocaleDateString()})`}
+                              </span>
+                            ) : (
+                              <span className="ml-1">
+                                {date.start} to {date.end}
+                              </span>
+                            )}
+                            <span className="text-gray-400 ml-1">[conf: {date.confidence}]</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Legacy entities fallback */}
+                  {memory.entities && memory.entities.length > 0 && !memory.extractedEntities && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Legacy Entities</h4>
                       <div className="flex flex-wrap gap-2">
                         {memory.entities.map((entity: string, index: number) => (
                           <span 

@@ -42,6 +42,10 @@ export const createContact = mutation({
       type: args.type,
       context: args.context,
       
+      // Family-aware scoping (required fields)
+      scope: 'personal', // Start as personal contact
+      originalUserId: userId, // The user who created this contact
+      
       // Contact information (essential data)
       phone: undefined,
       address: undefined,

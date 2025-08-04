@@ -473,7 +473,7 @@ export default defineSchema({
     importance: v.number(), // 1-10 importance score
     
     // THREE-TIER CLASSIFICATION SYSTEM (Enhanced Single Table)
-    classification: v.string(), // 'PROFILE', 'MEMORY', 'EXPERIENCE' - now required
+    classification: v.optional(v.string()), // 'PROFILE', 'MEMORY', 'EXPERIENCE' - optional for backward compatibility
     
     // UNIVERSAL DATE RESOLUTION (all classifications)
     resolvedDates: v.optional(v.array(v.object({
