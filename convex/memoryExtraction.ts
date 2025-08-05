@@ -111,6 +111,7 @@ export const extractEntitiesFromContent = action({
     messageId: v.string(),
     conversationId: v.string(),
     userId: v.optional(v.id("users")), // Allow passing userId directly
+    classification: v.optional(v.string()), // Pre-classified content type
   },
   handler: async (ctx, args): Promise<{
     success: boolean;

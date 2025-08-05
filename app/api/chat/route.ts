@@ -469,22 +469,48 @@ async function processMessageForProactive(messageContent: string, context: strin
   }
 }
 
-// Create memory from message content using Life OS extraction
+// Create memory from message content using Three-Tier Intelligence System
 async function createMemoryFromMessage(content: string, context: string, conversationId?: string) {
   try {
-    console.log('🧠 MEMORY DEBUG: createMemoryFromMessage called');
-    console.log('🧠 MEMORY DEBUG: Content:', content);
-    console.log('🧠 MEMORY DEBUG: Context:', context);
-    console.log('🧠 MEMORY DEBUG: ConversationId:', conversationId);
+    console.log('🧠 THREE-TIER: createMemoryFromMessage called');
+    console.log('🧠 THREE-TIER: Content:', content);
+    console.log('🧠 THREE-TIER: Context:', context);
+    console.log('🧠 THREE-TIER: ConversationId:', conversationId);
     
     // Skip memory creation if no valid conversationId
     if (!conversationId) {
-      console.log('⏭️ MEMORY DEBUG: Skipping memory creation - no valid conversationId');
+      console.log('⏭️ THREE-TIER: Skipping memory creation - no valid conversationId');
       return null;
     }
 
-    console.log('🧠 MEMORY DEBUG: Starting Life OS memory extraction...');
+    console.log('🧠 THREE-TIER: Starting content classification...');
 
+    // STEP 1: Classify content into PROFILE/MEMORY/EXPERIENCE
+    const classificationResult = await convex.action(api.contentClassifier.classifyContent, {
+      content: content,
+      context: context,
+    });
+
+    console.log('🎯 THREE-TIER: Classification result:', {
+      classification: classificationResult.classification,
+      confidence: classificationResult.confidence,
+      reasoning: classificationResult.reasoning,
+      subType: classificationResult.subType,
+    });
+
+    // STEP 2: Process based on classification
+    if (classificationResult.classification === "PROFILE") {
+      console.log('👤 THREE-TIER: PROFILE content detected - updating user profile');
+      // TODO: Extract profile data and update user profile
+      // For now, also create a memory for conversation context
+    } else if (classificationResult.classification === "EXPERIENCE") {
+      console.log('📅 THREE-TIER: EXPERIENCE content detected - creating trackable event');
+      // TODO: Create experience with proactive follow-ups
+    }
+
+    // STEP 3: Always create memory for conversation history (with classification)
+    console.log('🧠 THREE-TIER: Creating memory with classification...');
+    
     // Use the sophisticated Life OS memory extraction system
     const extractionResult = await convex.action(api.memoryExtraction.extractEntitiesFromContent, {
       content: content,
@@ -492,22 +518,23 @@ async function createMemoryFromMessage(content: string, context: string, convers
       messageId: 'temp-message-id', // Will be replaced with real message ID
       conversationId: conversationId,
       userId: "jh78atbrf5hkhz5bq8pqvzjyf57k3f2a" as any, // Default user for development
+      classification: classificationResult.classification, // Pass classification to memory creation
     });
 
-    console.log('🧠 MEMORY DEBUG: Extraction result:', JSON.stringify(extractionResult, null, 2));
+    console.log('🧠 THREE-TIER: Extraction result:', JSON.stringify(extractionResult, null, 2));
 
     if (extractionResult.success) {
-      console.log('✅ MEMORY DEBUG: Memory created successfully!');
-      console.log('✅ MEMORY DEBUG: Memory ID:', extractionResult.memoryId);
-      console.log('✅ MEMORY DEBUG: Extracted entities:', extractionResult.extractedContent);
+      console.log('✅ THREE-TIER: Memory created successfully!');
+      console.log('✅ THREE-TIER: Memory ID:', extractionResult.memoryId);
+      console.log('✅ THREE-TIER: Classification:', classificationResult.classification);
       return extractionResult.memoryId;
     } else {
-      console.error('❌ MEMORY DEBUG: Memory extraction failed!');
-      console.error('❌ MEMORY DEBUG: Error:', extractionResult.error);
+      console.error('❌ THREE-TIER: Memory extraction failed!');
+      console.error('❌ THREE-TIER: Error:', extractionResult.error);
       return null;
     }
   } catch (error) {
-    console.error('❌ Life OS: Memory creation error:', error);
+    console.error('❌ THREE-TIER: Memory creation error:', error);
     return null;
   }
 }
