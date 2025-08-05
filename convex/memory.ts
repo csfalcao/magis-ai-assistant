@@ -3,6 +3,81 @@ import { v } from 'convex/values';
 import { api } from './_generated/api';
 import { auth } from './auth';
 
+// Profile-first query resolution
+async function checkProfileForAnswer(ctx: any, userId: string, query: string): Promise<{ answer: string; source: string } | null> {
+  // Get user profile
+  const user = await ctx.runQuery(api.users.getUserById, { userId: userId as any });
+  if (!user) return null;
+
+  // Work-related queries
+  if (query.includes('where do i work') || query.includes('current job') || query.includes('my company')) {
+    if (user.workInfo?.employment?.company) {
+      return {
+        answer: `You currently work at ${user.workInfo.employment.company}${user.workInfo.employment.position ? ` as a ${user.workInfo.employment.position}` : ''}.`,
+        source: 'workInfo.employment'
+      };
+    }
+  }
+
+  // Location queries
+  if (query.includes('where do i live') || query.includes('my address') || query.includes('location')) {
+    if (user.personalInfo?.location?.city) {
+      const location = user.personalInfo.location;
+      const parts = [location.city, location.state, location.country].filter(Boolean);
+      return {
+        answer: `You live in ${parts.join(', ')}.`,
+        source: 'personalInfo.location'
+      };
+    }
+  }
+
+  // Birthday queries
+  if (query.includes('birthday') || query.includes('when was i born') || query.includes('date of birth')) {
+    if (user.personalInfo?.dateOfBirth) {
+      const date = new Date(user.personalInfo.dateOfBirth);
+      return {
+        answer: `Your birthday is ${date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}.`,
+        source: 'personalInfo.dateOfBirth'
+      };
+    }
+  }
+
+  // Family queries
+  if (query.includes('wife') || query.includes('spouse') || query.includes('husband')) {
+    if (user.familyInfo?.spouse?.name) {
+      return {
+        answer: `Your spouse's name is ${user.familyInfo.spouse.name}.`,
+        source: 'familyInfo.spouse'
+      };
+    }
+  }
+
+  // Service provider queries
+  if (query.includes('dentist') || query.includes('doctor') || query.includes('healthcare')) {
+    if (user.serviceProviders?.healthcare && user.serviceProviders.healthcare.length > 0) {
+      const providers = user.serviceProviders.healthcare;
+      const dentist = providers.find(p => p.type === 'dentist');
+      const doctor = providers.find(p => p.type === 'primary_care' || p.type === 'doctor');
+      
+      if (query.includes('dentist') && dentist) {
+        return {
+          answer: `Your dentist is ${dentist.name}${dentist.practice ? ` at ${dentist.practice}` : ''}.`,
+          source: 'serviceProviders.healthcare'
+        };
+      }
+      if (query.includes('doctor') && doctor) {
+        return {
+          answer: `Your doctor is ${doctor.name}${doctor.practice ? ` at ${doctor.practice}` : ''}.`,
+          source: 'serviceProviders.healthcare'
+        };
+      }
+    }
+  }
+
+  // No direct profile answer found
+  return null;
+}
+
 // Store a new memory with embedding
 export const storeMemory = mutation({
   args: {
@@ -994,6 +1069,31 @@ export const enhancedMemorySearchForDevelopment = action({
     console.warn('⚠️ User isolation is maintained but auth is bypassed');
     
     console.log(`🔍 Enhanced Memory Search (DEV): "${args.query}" for user ${args.developmentUserId}`);
+    
+    // PROFILE-FIRST RESOLUTION: Check if query can be answered from profile
+    const queryLower = args.query.toLowerCase();
+    const profileAnswer = await checkProfileForAnswer(ctx, args.developmentUserId, queryLower);
+    
+    if (profileAnswer) {
+      console.log(`👤 PROFILE-FIRST: Found direct answer in user profile`);
+      return [{
+        content: profileAnswer.answer,
+        context: 'profile',
+        memoryType: 'profile',
+        importance: 10,
+        searchScores: {
+          semantic: 1.0,
+          entity: 1.0,
+          temporal: 0,
+          keyword: 1.0,
+          importance: 1.0,
+        },
+        finalScore: 1.0,
+        _score: 1.0,
+        isProfileAnswer: true,
+        profileSource: profileAnswer.source,
+      }];
+    }
     
     // Generate query embedding for semantic search
     const queryEmbedding = await ctx.runAction(api.embeddings.generateQueryEmbedding, {

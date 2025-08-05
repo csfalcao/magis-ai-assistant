@@ -112,3 +112,11 @@ export const completeOnboarding = mutation({
     });
   },
 });
+
+// Get user by ID (for profile-first query resolution)
+export const getUserById = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.userId);
+  },
+});
