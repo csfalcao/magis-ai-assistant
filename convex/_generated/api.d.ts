@@ -16,6 +16,7 @@ import type {
 import type * as ai from "../ai.js";
 import type * as auth from "../auth.js";
 import type * as contacts from "../contacts.js";
+import type * as contentClassifier from "../contentClassifier.js";
 import type * as conversations from "../conversations.js";
 import type * as embeddings from "../embeddings.js";
 import type * as experiences from "../experiences.js";
@@ -25,6 +26,8 @@ import type * as memoryExtraction from "../memoryExtraction.js";
 import type * as memoryPipeline from "../memoryPipeline.js";
 import type * as proactive from "../proactive.js";
 import type * as profile from "../profile.js";
+import type * as profileExtractor from "../profileExtractor.js";
+import type * as systemTaskExecutor from "../systemTaskExecutor.js";
 import type * as users from "../users.js";
 
 /**
@@ -39,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   auth: typeof auth;
   contacts: typeof contacts;
+  contentClassifier: typeof contentClassifier;
   conversations: typeof conversations;
   embeddings: typeof embeddings;
   experiences: typeof experiences;
@@ -48,6 +52,8 @@ declare const fullApi: ApiFromModules<{
   memoryPipeline: typeof memoryPipeline;
   proactive: typeof proactive;
   profile: typeof profile;
+  profileExtractor: typeof profileExtractor;
+  systemTaskExecutor: typeof systemTaskExecutor;
   users: typeof users;
 }>;
 export declare const api: FilterApi<
