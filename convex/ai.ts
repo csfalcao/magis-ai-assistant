@@ -2,9 +2,12 @@ import { v } from "convex/values";
 import { action } from "./_generated/server";
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Initialize OpenAI client lazily to avoid environment variable issues
+function getOpenAIClient() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
 /**
  * AI helper functions for memory extraction and analysis
@@ -28,7 +31,7 @@ export const extractStructuredData = action({
     try {
       console.log('🤖 Calling OpenAI directly...');
       
-      const response = await openai.chat.completions.create({
+      const response = await getOpenAIClient().chat.completions.create({
         model: 'gpt-4-turbo-preview',
         messages: [{ role: 'user', content: args.prompt }],
         temperature: 0.1, // Low temperature for structured extraction
@@ -96,7 +99,7 @@ Return JSON array:
     const provider = "openai";
     
     try {
-      const response = await openai.chat.completions.create({
+      const response = await getOpenAIClient().chat.completions.create({
         model: 'gpt-4-turbo-preview',
         messages: [{ role: 'user', content: analysisPrompt }],
         temperature: 0.2,
@@ -135,7 +138,7 @@ export const generateFollowUpMessage = action({
     const provider = args.provider || "openai";
     
     try {
-      const response = await openai.chat.completions.create({
+      const response = await getOpenAIClient().chat.completions.create({
         model: 'gpt-4-turbo-preview',
         messages: [{ role: 'user', content: args.prompt }],
         temperature: 0.7, // Higher temperature for more natural, varied responses

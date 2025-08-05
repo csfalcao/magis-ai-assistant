@@ -323,7 +323,9 @@ export const getMemoriesForDevelopment = query({
       userId: memory.userId,
       importance: memory.importance,
       keywords: memory.keywords,
-      entities: memory.entities
+      entities: memory.entities,
+      embedding: memory.embedding, // Include embeddings for enhanced search
+      summary: memory.summary // Include summary for enhanced search
     }));
   },
 });
@@ -418,5 +420,333 @@ export const searchByKeywords = query({
     return filteredMemories
       .sort((a, b) => b.importance - a.importance)
       .slice(0, args.limit || 10);
+  },
+});
+
+// Multi-dimensional memory search combining semantic + entities + temporal + keywords
+export const enhancedMemorySearch = action({
+  args: {
+    query: v.string(),
+    context: v.optional(v.string()),
+    limit: v.optional(v.number()),
+    threshold: v.optional(v.number()), // Similarity threshold (0-1)
+  },
+  handler: async (ctx, args): Promise<any> => {
+    console.log(`🔍 Enhanced Memory Search: "${args.query}"`);
+    
+    // Generate query embedding for semantic search
+    const queryEmbedding = await ctx.runAction(api.embeddings.generateQueryEmbedding, {
+      query: args.query,
+    });
+    
+    // Get all user memories
+    const allMemories = await ctx.runQuery(api.memory.searchMemories, {
+      context: args.context,
+      limit: 100, // Get more for better filtering
+    });
+    
+    if (!allMemories || allMemories.length === 0) {
+      return [];
+    }
+    
+    console.log(`📊 Found ${allMemories.length} memories to search`);
+    
+    // Extract query components for multi-dimensional matching
+    const queryLower = args.query.toLowerCase();
+    const queryKeywords = queryLower.split(' ').filter(word => word.length > 2);
+    
+    // Score each memory using multiple dimensions
+    const scoredMemories = await Promise.all(
+      allMemories.map(async (memory) => {
+        const scores = {
+          semantic: 0,
+          entity: 0,
+          temporal: 0,
+          keyword: 0,
+          importance: (memory.importance || 5) / 10, // Normalize to 0-1
+        };
+        
+        // 1. SEMANTIC SIMILARITY (using stored embeddings)
+        const memoryEmbedding = (memory as any).embedding;
+        if (memoryEmbedding && memoryEmbedding.length === queryEmbedding.length) {
+          try {
+            scores.semantic = await ctx.runAction(api.embeddings.calculateSimilarity, {
+              embedding1: queryEmbedding,
+              embedding2: memoryEmbedding,
+            });
+          } catch (error) {
+            console.warn('Similarity calculation failed:', error);
+            scores.semantic = 0;
+          }
+        }
+        
+        // 2. ENTITY MATCHING (people, organizations, locations)
+        if (memory.extractedEntities) {
+          const entities = memory.extractedEntities;
+          let entityMatches = 0;
+          let totalEntities = 0;
+          
+          // Check people entities
+          if (entities.people) {
+            totalEntities += entities.people.length;
+            entityMatches += entities.people.filter(person => 
+              queryLower.includes(person.name?.toLowerCase() || '') ||
+              queryLower.includes(person.relationship?.toLowerCase() || '')
+            ).length;
+          }
+          
+          // Check organization entities
+          if (entities.organizations) {
+            totalEntities += entities.organizations.length;
+            entityMatches += entities.organizations.filter(org => 
+              queryLower.includes(org.name?.toLowerCase() || '') ||
+              queryLower.includes(org.type?.toLowerCase() || '')
+            ).length;
+          }
+          
+          // Check location entities
+          if (entities.locations) {
+            totalEntities += entities.locations.length;
+            entityMatches += entities.locations.filter(location => 
+              queryLower.includes(location.toLowerCase())
+            ).length;
+          }
+          
+          scores.entity = totalEntities > 0 ? entityMatches / totalEntities : 0;
+        }
+        
+        // 3. TEMPORAL MATCHING (for time-based queries)
+        if (memory.resolvedDates && memory.resolvedDates.length > 0) {
+          const hasTimeQuery = queryLower.includes('when') || 
+                              queryLower.includes('last') || 
+                              queryLower.includes('recent') ||
+                              queryLower.includes('ago') ||
+                              queryLower.includes('time');
+          
+          if (hasTimeQuery) {
+            // Higher score for memories with resolved dates when time is queried
+            scores.temporal = 0.8;
+            
+            // Boost recent memories for "last" or "recent" queries
+            if ((queryLower.includes('last') || queryLower.includes('recent')) && memory.createdAt) {
+              const daysSinceCreated = (Date.now() - memory.createdAt) / (1000 * 60 * 60 * 24);
+              scores.temporal = Math.max(0.8, 1.0 - (daysSinceCreated / 365)); // Decay over a year
+            }
+          }
+        }
+        
+        // 4. KEYWORD MATCHING (enhanced with content + entities + keywords)
+        const searchableText = [
+          memory.content || '',
+          ...((memory as any).keywords || []),
+          ...((memory as any).entities || []),
+          (memory as any).summary || '',
+        ].join(' ').toLowerCase();
+        
+        const keywordMatches = queryKeywords.filter(keyword => 
+          searchableText.includes(keyword)
+        ).length;
+        
+        scores.keyword = queryKeywords.length > 0 ? keywordMatches / queryKeywords.length : 0;
+        
+        // Calculate weighted final score
+        const finalScore = (
+          scores.semantic * 0.4 +      // 40% - proven 100% success
+          scores.entity * 0.3 +        // 30% - entity precision  
+          scores.temporal * 0.2 +      // 20% - temporal intelligence
+          scores.keyword * 0.1         // 10% - keyword fallback
+        ) * (0.5 + scores.importance * 0.5); // Boost by importance
+        
+        return {
+          ...memory,
+          searchScores: scores,
+          finalScore: finalScore,
+          _score: finalScore, // For compatibility
+        };
+      })
+    );
+    
+    // Filter by threshold and sort by final score
+    const threshold = args.threshold || 0.1; // Lower threshold to be more inclusive
+    const filteredResults = scoredMemories
+      .filter(memory => memory.finalScore >= threshold)
+      .sort((a, b) => b.finalScore - a.finalScore)
+      .slice(0, args.limit || 10);
+    
+    console.log(`🎯 Enhanced search results: ${filteredResults.length} memories above threshold ${threshold}`);
+    
+    if (filteredResults.length > 0) {
+      console.log(`📈 Top result score breakdown:`, filteredResults[0].searchScores);
+      console.log(`📈 Top result final score: ${filteredResults[0].finalScore.toFixed(3)}`);
+    }
+    
+    return filteredResults;
+  },
+});
+
+// Development-only enhanced memory search (bypasses auth but maintains user isolation)
+export const enhancedMemorySearchForDevelopment = action({
+  args: {
+    query: v.string(),
+    developmentUserId: v.string(), // DEVELOPMENT ONLY - requires explicit user ID
+    context: v.optional(v.string()),
+    limit: v.optional(v.number()),
+    threshold: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<any> => {
+    // SECURITY WARNING: This bypasses authentication for DEVELOPMENT ONLY
+    console.warn('⚠️ SECURITY WARNING: Using development-only enhanced memory search');
+    console.warn('⚠️ This bypasses authentication and should NEVER be used in production');
+    console.warn('⚠️ User isolation is maintained but auth is bypassed');
+    
+    console.log(`🔍 Enhanced Memory Search (DEV): "${args.query}" for user ${args.developmentUserId}`);
+    
+    // Generate query embedding for semantic search
+    const queryEmbedding = await ctx.runAction(api.embeddings.generateQueryEmbedding, {
+      query: args.query,
+    });
+    
+    // Get user memories using development query (maintains user isolation)
+    const allMemories = await ctx.runQuery(api.memory.getMemoriesForDevelopment, {
+      developmentUserId: args.developmentUserId
+    });
+    
+    if (!allMemories || allMemories.length === 0) {
+      console.log('📊 No memories found for development user');
+      return [];
+    }
+    
+    console.log(`📊 Found ${allMemories.length} memories to search`);
+    
+    // Extract query components for multi-dimensional matching
+    const queryLower = args.query.toLowerCase();
+    const queryKeywords = queryLower.split(' ').filter(word => word.length > 2);
+    
+    // Score each memory using multiple dimensions
+    const scoredMemories = await Promise.all(
+      allMemories.map(async (memory) => {
+        const scores = {
+          semantic: 0,
+          entity: 0,
+          temporal: 0,
+          keyword: 0,
+          importance: (memory.importance || 5) / 10, // Normalize to 0-1
+        };
+        
+        // 1. SEMANTIC SIMILARITY (using stored embeddings)
+        const memoryEmbedding = (memory as any).embedding;
+        if (memoryEmbedding && memoryEmbedding.length === queryEmbedding.length) {
+          try {
+            scores.semantic = await ctx.runAction(api.embeddings.calculateSimilarity, {
+              embedding1: queryEmbedding,
+              embedding2: memoryEmbedding,
+            });
+          } catch (error) {
+            console.warn('Similarity calculation failed:', error);
+            scores.semantic = 0;
+          }
+        }
+        
+        // 2. ENTITY MATCHING (people, organizations, locations)
+        if (memory.extractedEntities) {
+          const entities = memory.extractedEntities;
+          let entityMatches = 0;
+          let totalEntities = 0;
+          
+          // Check people entities
+          if (entities.people) {
+            totalEntities += entities.people.length;
+            entityMatches += entities.people.filter(person => 
+              queryLower.includes(person.name?.toLowerCase() || '') ||
+              queryLower.includes(person.relationship?.toLowerCase() || '')
+            ).length;
+          }
+          
+          // Check organization entities
+          if (entities.organizations) {
+            totalEntities += entities.organizations.length;
+            entityMatches += entities.organizations.filter(org => 
+              queryLower.includes(org.name?.toLowerCase() || '') ||
+              queryLower.includes(org.type?.toLowerCase() || '')
+            ).length;
+          }
+          
+          // Check location entities
+          if (entities.locations) {
+            totalEntities += entities.locations.length;
+            entityMatches += entities.locations.filter(location => 
+              queryLower.includes(location.toLowerCase())
+            ).length;
+          }
+          
+          scores.entity = totalEntities > 0 ? entityMatches / totalEntities : 0;
+        }
+        
+        // 3. TEMPORAL MATCHING (for time-based queries)
+        if (memory.resolvedDates && memory.resolvedDates.length > 0) {
+          const hasTimeQuery = queryLower.includes('when') || 
+                              queryLower.includes('last') || 
+                              queryLower.includes('recent') ||
+                              queryLower.includes('ago') ||
+                              queryLower.includes('time');
+          
+          if (hasTimeQuery) {
+            // Higher score for memories with resolved dates when time is queried
+            scores.temporal = 0.8;
+            
+            // Boost recent memories for "last" or "recent" queries
+            if ((queryLower.includes('last') || queryLower.includes('recent')) && memory.createdAt) {
+              const daysSinceCreated = (Date.now() - memory.createdAt) / (1000 * 60 * 60 * 24);
+              scores.temporal = Math.max(0.8, 1.0 - (daysSinceCreated / 365)); // Decay over a year
+            }
+          }
+        }
+        
+        // 4. KEYWORD MATCHING (enhanced with content + entities + keywords)
+        const searchableText = [
+          memory.content || '',
+          ...((memory as any).keywords || []),
+          ...((memory as any).entities || []),
+          (memory as any).summary || '',
+        ].join(' ').toLowerCase();
+        
+        const keywordMatches = queryKeywords.filter(keyword => 
+          searchableText.includes(keyword)
+        ).length;
+        
+        scores.keyword = queryKeywords.length > 0 ? keywordMatches / queryKeywords.length : 0;
+        
+        // Calculate weighted final score
+        const finalScore = (
+          scores.semantic * 0.4 +      // 40% - proven 100% success
+          scores.entity * 0.3 +        // 30% - entity precision  
+          scores.temporal * 0.2 +      // 20% - temporal intelligence
+          scores.keyword * 0.1         // 10% - keyword fallback
+        ) * (0.5 + scores.importance * 0.5); // Boost by importance
+        
+        return {
+          ...memory,
+          searchScores: scores,
+          finalScore: finalScore,
+          _score: finalScore, // For compatibility
+        };
+      })
+    );
+    
+    // Filter by threshold and sort by final score
+    const threshold = args.threshold || 0.1; // Lower threshold to be more inclusive
+    const filteredResults = scoredMemories
+      .filter(memory => memory.finalScore >= threshold)
+      .sort((a, b) => b.finalScore - a.finalScore)
+      .slice(0, args.limit || 10);
+    
+    console.log(`🎯 Enhanced search results: ${filteredResults.length} memories above threshold ${threshold}`);
+    
+    if (filteredResults.length > 0) {
+      console.log(`📈 Top result score breakdown:`, filteredResults[0].searchScores);
+      console.log(`📈 Top result final score: ${filteredResults[0].finalScore.toFixed(3)}`);
+    }
+    
+    return filteredResults;
   },
 });

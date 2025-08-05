@@ -1,0 +1,691 @@
+🚀 Starting MAGIS Memory Retrieval Validation...
+
+🧠 MAGIS MEMORY RETRIEVAL INTELLIGENCE TEST
+============================================
+Testing complete store → retrieve → answer pipeline
+Based on memories stored during 20-question validation
+
+
+🔹 TEST 1/20 [BASIC_RETRIEVAL]
+📝 Simple biographical fact retrieval
+💾 Stored: "My birthday is December 29th and I was born in Miami"
+❓ Query: "When is my birthday?"
+🎯 Expected: December 29th
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "When is my birthday?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '📊 Found 20 memories to search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🎯 Enhanced search results: 5 memories above threshold 0.1'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '📈 Top result score breakdown:' {
+  semantic: 0,
+  entity: 0,
+  temporal: 0.8,
+  keyword: 0,
+  importance: 0.8
+}
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '📈 Top result final score: 0.144'
+🔍 Enhanced search retrieved 5 memories
+✅ Best enhanced match: "Moving to downtown Seattle next month near Pike Place Market..."
+📊 Score breakdown: { entity: 0, importance: 0.8, keyword: 0, semantic: 0, temporal: 0.8 }
+📈 Final score: 0.144
+🤖 MAGIS Response: "Moving to downtown Seattle next month near Pike Place Market"
+📊 Analysis: 30% match
+   ✓ Contains Expected Info: ❌
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ❌
+──────────────────────────────────────────────────────────────────────
+
+🔹 TEST 2/20 [BASIC_RETRIEVAL]
+📝 Work information retrieval
+💾 Stored: "I work at Google as a software engineer in the Cloud division"
+❓ Query: "Where do I work?"
+🎯 Expected: Google
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "Where do I work?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '📊 Found 20 memories to search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🎯 Enhanced search results: 0 memories above threshold 0.1'
+🔍 Enhanced search retrieved 0 memories
+🔄 Enhanced search found no results, trying legacy fallback...
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only memory access'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [LOG] '🔒 Development query: Retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+🔍 Legacy retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a
+🔍 Found 7 relevant memories via legacy matching
+✅ Legacy best match: "Started working at Microsoft last week in the Azure team..."
+🤖 MAGIS Response: "You work at Microsoft in the Azure team."
+📊 Analysis: 30% match
+   ✓ Contains Expected Info: ❌
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ❌
+──────────────────────────────────────────────────────────────────────
+
+🔹 TEST 3/20 [BASIC_RETRIEVAL]
+📝 Service provider information retrieval
+💾 Stored: "Dr. Mary Johnson is my new dentist at Downtown Dental Clinic"
+❓ Query: "Who is my dentist?"
+🎯 Expected: Dr. Mary Johnson
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "Who is my dentist?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '📊 Found 20 memories to search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🎯 Enhanced search results: 1 memories above threshold 0.1'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '📈 Top result score breakdown:' {
+  semantic: 0,
+  entity: 0.5,
+  temporal: 0,
+  keyword: 0,
+  importance: 0.8
+}
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '📈 Top result final score: 0.135'
+🔍 Enhanced search retrieved 1 memories
+✅ Best enhanced match: "Dr. Mary Johnson is my new dentist at Downtown Dental Clinic..."
+📊 Score breakdown: { entity: 0.5, importance: 0.8, keyword: 0, semantic: 0, temporal: 0 }
+📈 Final score: 0.135
+🤖 MAGIS Response: "Your dentist is Dr. Mary Johnson at Downtown Dental Clinic."
+📊 Analysis: 100% match
+   ✓ Contains Expected Info: ✅
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ✅
+──────────────────────────────────────────────────────────────────────
+
+🔹 TEST 4/20 [TEMPORAL_QUERIES]
+📝 Scheduled appointment retrieval
+💾 Stored: "Meeting with Sarah next Friday at 2pm downtown to discuss the wedding plans"
+❓ Query: "When is my meeting with Sarah?"
+🎯 Expected: Friday at 2pm
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "When is my meeting with Sarah?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+⚠️ Enhanced search failed, trying legacy fallback...
+⚠️ Enhanced search error: [Request ID: c94f58f5da4dc173] Server Error
+Uncaught Error: Uncaught Error: Failed to generate query embedding
+    at handler (../convex/embeddings.ts:215:4)
+
+    at async handler (../convex/memory.ts:603:13)
+
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only memory access'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [LOG] '🔒 Development query: Retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+🔍 Legacy retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a
+🔍 Found 8 relevant memories via legacy matching
+✅ Legacy best match: "Had an amazing sushi dinner at Nobu last night with incredib..."
+🤖 MAGIS Response: "Had an amazing sushi dinner at Nobu last night with incredible yellowtail"
+📊 Analysis: 30% match
+   ✓ Contains Expected Info: ❌
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ❌
+──────────────────────────────────────────────────────────────────────
+
+🔹 TEST 5/20 [TEMPORAL_QUERIES]
+📝 Task deadline retrieval
+💾 Stored: "Need to renew my passport next month before the Europe trip"
+❓ Query: "When do I need to renew my passport?"
+🎯 Expected: next month
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "When do I need to renew my passport?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+⚠️ Enhanced search failed, trying legacy fallback...
+⚠️ Enhanced search error: [Request ID: 6f6d538c301072a4] Server Error
+Uncaught Error: Uncaught Error: Failed to generate query embedding
+    at handler (../convex/embeddings.ts:215:4)
+
+    at async handler (../convex/memory.ts:603:13)
+
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only memory access'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [LOG] '🔒 Development query: Retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+🔍 Legacy retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a
+🔍 Found 1 relevant memories via legacy matching
+✅ Legacy best match: "I need to go to the dentist next Friday at 2 PM downtown wit..."
+🤖 MAGIS Response: "I need to go to the dentist next Friday at 2 PM downtown with Dr. Smith"
+📊 Analysis: 30% match
+   ✓ Contains Expected Info: ❌
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ❌
+──────────────────────────────────────────────────────────────────────
+
+🔹 TEST 6/20 [TEMPORAL_QUERIES]
+📝 Past event timing retrieval
+💾 Stored: "Had an amazing sushi dinner at Nobu last night with incredible yellowtail"
+❓ Query: "When did I go to Nobu?"
+🎯 Expected: last night
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "When did I go to Nobu?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+⚠️ Enhanced search failed, trying legacy fallback...
+⚠️ Enhanced search error: [Request ID: ec63758dabd517f5] Server Error
+Uncaught Error: Uncaught Error: Failed to generate query embedding
+    at handler (../convex/embeddings.ts:215:4)
+
+    at async handler (../convex/memory.ts:603:13)
+
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only memory access'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [LOG] '🔒 Development query: Retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+🔍 Legacy retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a
+🔍 Found 2 relevant memories via legacy matching
+✅ Legacy best match: "Had an amazing sushi dinner at Nobu last night with incredib..."
+🤖 MAGIS Response: "Had an amazing sushi dinner at Nobu last night with incredible yellowtail"
+📊 Analysis: 100% match
+   ✓ Contains Expected Info: ✅
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ✅
+──────────────────────────────────────────────────────────────────────
+
+🔹 TEST 7/20 [EXPERIENCE_RETRIEVAL]
+📝 Mixed sentiment experience recall
+💾 Stored: "The Taylor Swift concert was incredible but the crowd was way too loud and chaotic"
+❓ Query: "How was the Taylor Swift concert?"
+🎯 Expected: loud
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "How was the Taylor Swift concert?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+⚠️ Enhanced search failed, trying legacy fallback...
+⚠️ Enhanced search error: [Request ID: 9ec520400b536bda] Server Error
+Uncaught Error: Uncaught Error: Failed to generate query embedding
+    at handler (../convex/embeddings.ts:215:4)
+
+    at async handler (../convex/memory.ts:603:13)
+
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only memory access'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [LOG] '🔒 Development query: Retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+🔍 Legacy retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a
+🔍 Found 11 relevant memories via legacy matching
+✅ Legacy best match: "Started working at Microsoft last week in the Azure team..."
+🤖 MAGIS Response: "The Taylor Swift concert was incredible but the crowd was way too loud and chaotic."
+📊 Analysis: 100% match
+   ✓ Contains Expected Info: ✅
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ✅
+──────────────────────────────────────────────────────────────────────
+
+🔹 TEST 8/20 [EXPERIENCE_RETRIEVAL]
+📝 Positive dining experience recall
+💾 Stored: "Had an amazing sushi dinner at Nobu last night with incredible yellowtail"
+❓ Query: "How was dinner at Nobu?"
+🎯 Expected: incredible
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "How was dinner at Nobu?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+⚠️ Enhanced search failed, trying legacy fallback...
+⚠️ Enhanced search error: [Request ID: d6bb6cc0c760d024] Server Error
+Uncaught Error: Uncaught Error: Failed to generate query embedding
+    at handler (../convex/embeddings.ts:215:4)
+
+    at async handler (../convex/memory.ts:603:13)
+
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only memory access'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [LOG] '🔒 Development query: Retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+🔍 Legacy retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a
+🔍 Found 5 relevant memories via legacy matching
+✅ Legacy best match: "Had an amazing sushi dinner at Nobu last night with incredib..."
+🤖 MAGIS Response: "You had an amazing sushi dinner at Nobu with incredible yellowtail."
+📊 Analysis: 100% match
+   ✓ Contains Expected Info: ✅
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ✅
+──────────────────────────────────────────────────────────────────────
+
+🔹 TEST 9/20 [EXPERIENCE_RETRIEVAL]
+📝 Work stress pattern retrieval
+💾 Stored: "Work has been really stressful lately with all these deadlines piling up"
+❓ Query: "How has work been lately?"
+🎯 Expected: deadlines
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "How has work been lately?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+⚠️ Enhanced search failed, trying legacy fallback...
+⚠️ Enhanced search error: [Request ID: e102e61badd2a2a5] Server Error
+Uncaught Error: Uncaught Error: Failed to generate query embedding
+    at handler (../convex/embeddings.ts:215:4)
+
+    at async handler (../convex/memory.ts:603:13)
+
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only memory access'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [LOG] '🔒 Development query: Retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+🔍 Legacy retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a
+🔍 Found 7 relevant memories via legacy matching
+✅ Legacy best match: "Started working at Microsoft last week in the Azure team..."
+🤖 MAGIS Response: "Started working at Microsoft last week in the Azure team"
+📊 Analysis: 30% match
+   ✓ Contains Expected Info: ❌
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ❌
+──────────────────────────────────────────────────────────────────────
+
+🔹 TEST 10/20 [CROSS_CONTEXT]
+📝 Health cycle awareness
+💾 Stored: "I haven't been to the dentist in over a year, really need to schedule a cleaning"
+❓ Query: "When was my last dental visit?"
+🎯 Expected: over a year ago
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "When was my last dental visit?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+⚠️ Enhanced search failed, trying legacy fallback...
+⚠️ Enhanced search error: [Request ID: d81102cda62cb274] Server Error
+Uncaught Error: Uncaught Error: Failed to generate query embedding
+    at handler (../convex/embeddings.ts:215:4)
+
+    at async handler (../convex/memory.ts:603:13)
+
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only memory access'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [LOG] '🔒 Development query: Retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+🔍 Legacy retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a
+🔍 Found 8 relevant memories via legacy matching
+✅ Legacy best match: "Started working at Microsoft last week in the Azure team..."
+🤖 MAGIS Response: "Started working at Microsoft last week in the Azure team"
+📊 Analysis: 30% match
+   ✓ Contains Expected Info: ❌
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ❌
+──────────────────────────────────────────────────────────────────────
+
+🔹 TEST 11/20 [CROSS_CONTEXT]
+📝 Preference learning retrieval
+💾 Stored: "I hate waiting at restaurants, prefer places with quick service or reservations"
+❓ Query: "What kind of restaurants do I prefer?"
+🎯 Expected: quick service
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "What kind of restaurants do I prefer?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+⚠️ Enhanced search failed, trying legacy fallback...
+⚠️ Enhanced search error: [Request ID: 62cc628b6d8639b1] Server Error
+Uncaught Error: Uncaught Error: Failed to generate query embedding
+    at handler (../convex/embeddings.ts:215:4)
+
+    at async handler (../convex/memory.ts:603:13)
+
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only memory access'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [LOG] '🔒 Development query: Retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+🔍 Legacy retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a
+🔍 Found 1 relevant memories via legacy matching
+✅ Legacy best match: "Had dinner with my friend Sarah at Luigi's restaurant downto..."
+🤖 MAGIS Response: "Had dinner with my friend Sarah at Luigi's restaurant downtown last night"
+📊 Analysis: 30% match
+   ✓ Contains Expected Info: ❌
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ❌
+──────────────────────────────────────────────────────────────────────
+
+🔹 TEST 12/20 [CROSS_CONTEXT]
+📝 Recent professional change
+💾 Stored: "Started working at Microsoft last week in the Azure team"
+❓ Query: "What's my current job?"
+🎯 Expected: Azure
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "What\'s my current job?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+⚠️ Enhanced search failed, trying legacy fallback...
+⚠️ Enhanced search error: [Request ID: 02634b80f53ac182] Server Error
+Uncaught Error: Uncaught Error: Failed to generate query embedding
+    at handler (../convex/embeddings.ts:215:4)
+
+    at async handler (../convex/memory.ts:603:13)
+
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only memory access'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [LOG] '🔒 Development query: Retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+🔍 Legacy retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a
+🔍 Found 0 relevant memories via legacy matching
+🔄 No direct memories found, testing chat API for comparison...
+🤖 MAGIS Response: "Chat API failed: fetch failed"
+📊 Analysis: 30% match
+   ✓ Contains Expected Info: ❌
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ❌
+──────────────────────────────────────────────────────────────────────
+
+🔹 TEST 13/20 [SEMANTIC_SEARCH]
+📝 Semantic understanding of healthcare
+💾 Stored: "Dr. Mary Johnson is my new dentist at Downtown Dental Clinic"
+❓ Query: "Do I have a healthcare provider?"
+🎯 Expected: Dr. Mary Johnson
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "Do I have a healthcare provider?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+⚠️ Enhanced search failed, trying legacy fallback...
+⚠️ Enhanced search error: [Request ID: 56f5e733190698b1] Server Error
+Uncaught Error: Uncaught Error: Failed to generate query embedding
+    at handler (../convex/embeddings.ts:215:4)
+
+    at async handler (../convex/memory.ts:603:13)
+
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only memory access'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [LOG] '🔒 Development query: Retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+🔍 Legacy retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a
+🔍 Found 3 relevant memories via legacy matching
+✅ Legacy best match: "Dr. Mary Johnson is my new dentist at Downtown Dental Clinic..."
+🤖 MAGIS Response: "Yes, your dentist is Dr. Mary Johnson at Downtown Dental Clinic."
+📊 Analysis: 100% match
+   ✓ Contains Expected Info: ✅
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ✅
+──────────────────────────────────────────────────────────────────────
+
+🔹 TEST 14/20 [SEMANTIC_SEARCH]
+📝 Semantic understanding of social events
+💾 Stored: "Meeting with Sarah next Friday at 2pm downtown to discuss the wedding plans"
+❓ Query: "Do I have any upcoming social events?"
+🎯 Expected: meeting with Sarah
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "Do I have any upcoming social events?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+⚠️ Enhanced search failed, trying legacy fallback...
+⚠️ Enhanced search error: [Request ID: 6f8c91fb6d2febb7] Server Error
+Uncaught Error: Uncaught Error: Failed to generate query embedding
+    at handler (../convex/embeddings.ts:215:4)
+
+    at async handler (../convex/memory.ts:603:13)
+
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only memory access'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [LOG] '🔒 Development query: Retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+🔍 Legacy retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a
+🔍 Found 1 relevant memories via legacy matching
+✅ Legacy best match: "Meeting John from Amazon at the Starbucks on Pine Street tom..."
+🤖 MAGIS Response: "You have a meeting with Sarah next Friday at 2pm downtown to discuss wedding plans."
+📊 Analysis: 100% match
+   ✓ Contains Expected Info: ✅
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ✅
+──────────────────────────────────────────────────────────────────────
+
+🔹 TEST 15/20 [SEMANTIC_SEARCH]
+📝 Semantic understanding of travel plans
+💾 Stored: "Need to renew my passport next month before the Europe trip"
+❓ Query: "Do I have any travel coming up?"
+🎯 Expected: Europe trip
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "Do I have any travel coming up?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+⚠️ Enhanced search failed, trying legacy fallback...
+⚠️ Enhanced search error: [Request ID: 6d42d276b1193e4f] Server Error
+Uncaught Error: Uncaught Error: Failed to generate query embedding
+    at handler (../convex/embeddings.ts:215:4)
+
+    at async handler (../convex/memory.ts:603:13)
+
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only memory access'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [LOG] '🔒 Development query: Retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+🔍 Legacy retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a
+🔍 Found 1 relevant memories via legacy matching
+✅ Legacy best match: "Feeling under the weather today, might be coming down with s..."
+🤖 MAGIS Response: "Yes, you have a Europe trip planned and need to renew your passport next month."
+📊 Analysis: 100% match
+   ✓ Contains Expected Info: ✅
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ✅
+──────────────────────────────────────────────────────────────────────
+
+🔹 TEST 16/20 [COMPLEX_REASONING]
+📝 Temporal reasoning about upcoming events
+💾 Stored: "My birthday is December 29th"
+❓ Query: "Is my birthday coming up soon?"
+🎯 Expected: yes
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "Is my birthday coming up soon?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+⚠️ Enhanced search failed, trying legacy fallback...
+⚠️ Enhanced search error: [Request ID: ad3cab6d8600a978] Server Error
+Uncaught Error: Uncaught Error: Failed to generate query embedding
+    at handler (../convex/embeddings.ts:215:4)
+
+    at async handler (../convex/memory.ts:603:13)
+
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only memory access'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [LOG] '🔒 Development query: Retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+🔍 Legacy retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a
+🔍 Found 4 relevant memories via legacy matching
+✅ Legacy best match: "My birthday is December 29th and I was born in Miami..."
+🤖 MAGIS Response: "My birthday is December 29th and I was born in Miami"
+📊 Analysis: 30% match
+   ✓ Contains Expected Info: ❌
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ❌
+──────────────────────────────────────────────────────────────────────
+
+🔹 TEST 17/20 [COMPLEX_REASONING]
+📝 Handling conflicting/updated information
+💾 Stored: "I work at Google as a software engineerStarted working at Microsoft last week"
+❓ Query: "Where do I currently work?"
+🎯 Expected: Microsoft
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "Where do I currently work?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+⚠️ Enhanced search failed, trying legacy fallback...
+⚠️ Enhanced search error: [Request ID: 79b37fdc4fea2aa8] Server Error
+Uncaught Error: Uncaught Error: Failed to generate query embedding
+    at handler (../convex/embeddings.ts:215:4)
+
+    at async handler (../convex/memory.ts:603:13)
+
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only memory access'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [LOG] '🔒 Development query: Retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+🔍 Legacy retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a
+🔍 Found 7 relevant memories via legacy matching
+✅ Legacy best match: "Started working at Microsoft last week in the Azure team..."
+🤖 MAGIS Response: "You work at Microsoft in the Azure team."
+📊 Analysis: 100% match
+   ✓ Contains Expected Info: ✅
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ✅
+──────────────────────────────────────────────────────────────────────
+
+🔹 TEST 18/20 [COMPLEX_REASONING]
+📝 Balancing positive experience with preferences
+💾 Stored: "Had amazing sushi dinner at NobuI hate waiting at restaurants, prefer quick service"
+❓ Query: "Should I go back to Nobu?"
+🎯 Expected: amazing
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "Should I go back to Nobu?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+⚠️ Enhanced search failed, trying legacy fallback...
+⚠️ Enhanced search error: [Request ID: d3bcf41abbf87017] Server Error
+Uncaught Error: Uncaught Error: Failed to generate query embedding
+    at handler (../convex/embeddings.ts:215:4)
+
+    at async handler (../convex/memory.ts:603:13)
+
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only memory access'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [LOG] '🔒 Development query: Retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+🔍 Legacy retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a
+🔍 Found 2 relevant memories via legacy matching
+✅ Legacy best match: "Had an amazing sushi dinner at Nobu last night with incredib..."
+🤖 MAGIS Response: "Had an amazing sushi dinner at Nobu last night with incredible yellowtail"
+📊 Analysis: 100% match
+   ✓ Contains Expected Info: ✅
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ✅
+──────────────────────────────────────────────────────────────────────
+
+🔹 TEST 19/20 [CONTACTS_RELATIONSHIPS]
+📝 Relationship inference from context
+💾 Stored: "Meeting with Sarah next FridayMy friend Sarah recommended Dr. Smith"
+❓ Query: "Who is Sarah?"
+🎯 Expected: friend
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "Who is Sarah?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+⚠️ Enhanced search failed, trying legacy fallback...
+⚠️ Enhanced search error: [Request ID: a2e9789c1816bf6f] Server Error
+Uncaught Error: Uncaught Error: Failed to generate query embedding
+    at handler (../convex/embeddings.ts:215:4)
+
+    at async handler (../convex/memory.ts:603:13)
+
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only memory access'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [LOG] '🔒 Development query: Retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+🔍 Legacy retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a
+🔍 Found 1 relevant memories via legacy matching
+✅ Legacy best match: "Had dinner with my friend Sarah at Luigi's restaurant downto..."
+🤖 MAGIS Response: "Had dinner with my friend Sarah at Luigi's restaurant downtown last night"
+📊 Analysis: 100% match
+   ✓ Contains Expected Info: ✅
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ✅
+──────────────────────────────────────────────────────────────────────
+
+🔹 TEST 20/20 [CONTACTS_RELATIONSHIPS]
+📝 Professional relationship categorization
+💾 Stored: "Dr. Mary Johnson is my new dentist"
+❓ Query: "Who are my healthcare providers?"
+🎯 Expected: Dr. Mary Johnson
+🔍 Using enhanced multi-dimensional memory search for comprehensive testing...
+🔒 SECURITY: User isolation maintained even without authentication
+🚀 Testing enhanced multi-dimensional memory search...
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only enhanced memory search'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX A(memory:enhancedMemorySearchForDevelopment)] [LOG] '🔍 Enhanced Memory Search (DEV): "Who are my healthcare providers?" for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+⚠️ Enhanced search failed, trying legacy fallback...
+⚠️ Enhanced search error: [Request ID: 123d395d357c27a5] Server Error
+Uncaught Error: Uncaught Error: Failed to generate query embedding
+    at handler (../convex/embeddings.ts:215:4)
+
+    at async handler (../convex/memory.ts:603:13)
+
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ SECURITY WARNING: Using development-only memory access'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ This bypasses authentication and should NEVER be used in production'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [WARN] '⚠️ User isolation is maintained but auth is bypassed'
+[CONVEX Q(memory:getMemoriesForDevelopment)] [LOG] '🔒 Development query: Retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a'
+🔍 Legacy retrieved 20 memories for user jh78atbrf5hkhz5bq8pqvzjyf57k3f2a
+🔍 Found 5 relevant memories via legacy matching
+✅ Legacy best match: "Dr. Mary Johnson is my new dentist at Downtown Dental Clinic..."
+🤖 MAGIS Response: "Yes, your dentist is Dr. Mary Johnson at Downtown Dental Clinic."
+📊 Analysis: 100% match
+   ✓ Contains Expected Info: ✅
+   ✓ Contextually Relevant: ✅
+   ✓ Memory Retrieved: ✅
+──────────────────────────────────────────────────────────────────────
+
+🎯 MAGIS MEMORY RETRIEVAL TEST RESULTS
+======================================
+
+📊 OVERALL METRICS:
+   Total Tests: 20
+   Successful Retrieval: 11/20 (55%)
+   Average Score: 69%
+
+📋 CATEGORY BREAKDOWN:
+   BASIC_RETRIEVAL: 1/3 (33%)
+   TEMPORAL_QUERIES: 1/3 (33%)
+   EXPERIENCE_RETRIEVAL: 2/3 (67%)
+   CROSS_CONTEXT: 0/3 (0%)
+   SEMANTIC_SEARCH: 3/3 (100%)
+   COMPLEX_REASONING: 2/3 (67%)
+   CONTACTS_RELATIONSHIPS: 2/2 (100%)
+
+🚨 CRITICAL ISSUES DETECTED:
+   ❌ Basic memory retrieval failing
+
+⚠️  Memory retrieval system needs fixes before production
+   Target: >70% average score, >70% success rate
+   Current: 69% average, 55% success
+
+✅ Memory Retrieval Test Complete
+📈 Results: 11/20 tests passed

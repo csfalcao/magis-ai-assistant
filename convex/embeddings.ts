@@ -3,13 +3,18 @@ import { v } from 'convex/values';
 import OpenAI from 'openai';
 import { VoyageAIClient } from 'voyageai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Initialize clients lazily to avoid environment variable issues
+function getOpenAIClient() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
-const voyage = new VoyageAIClient({
-  apiKey: process.env.VOYAGE_API_KEY,
-});
+function getVoyageClient() {
+  return new VoyageAIClient({
+    apiKey: process.env.VOYAGE_API_KEY,
+  });
+}
 
 // Generate embeddings for text content using Voyage 3.5 Lite
 export const generateEmbedding = action({
@@ -26,7 +31,7 @@ export const generateEmbedding = action({
         console.log('🚀 VOYAGE DEBUG: Text length:', args.text.length);
         console.log('🚀 VOYAGE DEBUG: Text preview:', args.text.substring(0, 100));
         
-        const response = await voyage.embed({
+        const response = await getVoyageClient().embed({
           input: [args.text],
           model: 'voyage-3.5-lite',
           inputType: 'document',
@@ -64,6 +69,7 @@ export const generateEmbedding = action({
     }
     
     console.error('❌ VOYAGE DEBUG: All retries failed. Last error:', lastError);
+    console.error('❌ VOYAGE DEBUG: Full error object:', JSON.stringify(lastError, null, 2));
     throw new Error(`Failed to generate embedding after ${maxRetries} attempts: ${(lastError as any)?.message || 'Unknown error'}`);
   },
 });
@@ -76,7 +82,7 @@ export const generateBatchEmbeddings = action({
   handler: async (ctx, args) => {
     try {
       // Voyage allows batch processing - process all texts at once
-      const response = await voyage.embed({
+      const response = await getVoyageClient().embed({
         input: args.texts,
         model: 'voyage-3.5-lite',
         inputType: 'document',
@@ -132,7 +138,7 @@ Return as JSON:
   "summary": "Brief summary of the memory"
 }`;
 
-      const response = await openai.chat.completions.create({
+      const response = await getOpenAIClient().chat.completions.create({
         model: 'gpt-4-turbo-preview',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.3,
@@ -198,7 +204,7 @@ export const generateQueryEmbedding = action({
   },
   handler: async (ctx, args) => {
     try {
-      const response = await voyage.embed({
+      const response = await getVoyageClient().embed({
         input: [args.query],
         model: 'voyage-3.5-lite',
         inputType: 'query', // Use 'query' input type for search queries
@@ -207,7 +213,8 @@ export const generateQueryEmbedding = action({
       return response.data?.[0]?.embedding || [];
     } catch (error) {
       console.error('Error generating Voyage query embedding:', error);
-      throw new Error('Failed to generate query embedding');
+      console.error('Full error details:', JSON.stringify(error, null, 2));
+      throw new Error(`Failed to generate query embedding: ${error instanceof Error ? error.message : String(error)}`);
     }
   },
 });

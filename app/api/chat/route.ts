@@ -80,17 +80,35 @@ async function executeFunction(name: string, args: any): Promise<string> {
 
 // Helper functions for RAG integration
 async function retrieveRelevantMemories(query: string, context: string): Promise<any[]> {
-  console.log('🔍 RAG DEBUG: Starting memory retrieval...');
+  console.log('🔍 RAG DEBUG: Starting enhanced memory retrieval...');
   console.log('🔍 RAG DEBUG: Query:', query);
   console.log('🔍 RAG DEBUG: Context:', context);
   
-  // Use keyword-based search as a fallback while vector search is being optimized
-  const keywords = query.toLowerCase().split(' ').filter(word => word.length > 2);
-  console.log('🔍 RAG DEBUG: Keywords:', keywords);
-  
-  // Try smart memory search first (but expect it to fail due to auth)
+  // Try enhanced multi-dimensional memory search first (but expect it to fail due to auth)
   try {
-    console.log('🔍 RAG DEBUG: Attempting smart memory search...');
+    console.log('🔍 RAG DEBUG: Attempting enhanced memory search...');
+    const enhancedResults = await convex.action(api.memory.enhancedMemorySearch, {
+      query: query,
+      context: context,
+      limit: 5,
+      threshold: 0.1 // Lower threshold for more inclusive results
+    });
+    
+    console.log('🔍 RAG DEBUG: Enhanced search results:', enhancedResults?.length || 0);
+    
+    if (enhancedResults && enhancedResults.length > 0) {
+      console.log('✅ RAG DEBUG: Enhanced memory search successful!');
+      console.log('📈 RAG DEBUG: Top result scores:', enhancedResults[0]?.searchScores);
+      return enhancedResults.slice(0, 3);
+    }
+  } catch (enhancedError) {
+    console.log('⚠️ RAG DEBUG: Enhanced search failed (expected due to auth), trying fallback...');
+    console.log('⚠️ RAG DEBUG: Enhanced search error:', enhancedError.message);
+  }
+  
+  // Fallback: Try smart memory search (legacy)
+  try {
+    console.log('🔍 RAG DEBUG: Attempting legacy smart memory search...');
     const smartResults = await convex.action(api.memory.smartMemorySearch, {
       query: query,
       context: context,
@@ -104,7 +122,7 @@ async function retrieveRelevantMemories(query: string, context: string): Promise
       return smartResults.slice(0, 3);
     }
   } catch (smartError) {
-    console.log('⚠️ RAG DEBUG: Smart search failed (expected due to auth), trying fallback...');
+    console.log('⚠️ RAG DEBUG: Smart search failed (expected due to auth), trying final fallback...');
     console.log('⚠️ RAG DEBUG: Smart search error:', smartError.message);
   }
   
