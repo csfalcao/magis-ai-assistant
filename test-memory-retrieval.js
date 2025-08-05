@@ -269,8 +269,8 @@ async function testChatWithMemoryRetrieval(query) {
     // Use the new enhanced memory search system
     const developmentUserId = "jh78atbrf5hkhz5bq8pqvzjyf57k3f2a"; // Test user from previous validation
     
-    console.log("🚀 Testing enhanced multi-dimensional memory search...");
-    const enhancedResults = await convex.action("memory:enhancedMemorySearchForDevelopment", {
+    console.log("🚀 Testing hybrid task-memory search system...");
+    const enhancedResults = await convex.action("memory:hybridSearchForDevelopment", {
       query: query,
       developmentUserId: developmentUserId,
       limit: 5,

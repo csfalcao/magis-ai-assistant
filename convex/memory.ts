@@ -56,8 +56,8 @@ async function checkProfileForAnswer(ctx: any, userId: string, query: string): P
   if (query.includes('dentist') || query.includes('doctor') || query.includes('healthcare')) {
     if (user.serviceProviders?.healthcare && user.serviceProviders.healthcare.length > 0) {
       const providers = user.serviceProviders.healthcare;
-      const dentist = providers.find(p => p.type === 'dentist');
-      const doctor = providers.find(p => p.type === 'primary_care' || p.type === 'doctor');
+      const dentist = providers.find((p: any) => p.type === 'dentist');
+      const doctor = providers.find((p: any) => p.type === 'primary_care' || p.type === 'doctor');
       
       if (query.includes('dentist') && dentist) {
         return {
@@ -774,7 +774,7 @@ export const enhancedMemorySearch = action({
     
     // Score each memory using multiple dimensions
     const scoredMemories = await Promise.all(
-      allMemories.map(async (memory) => {
+      allMemories.map(async (memory: any) => {
         const scores = {
           semantic: 0,
           entity: 0,
@@ -897,8 +897,8 @@ export const enhancedMemorySearch = action({
     // Filter by threshold and sort by final score
     const threshold = args.threshold || 0.1; // Lower threshold to be more inclusive
     const filteredResults = scoredMemories
-      .filter(memory => memory.finalScore >= threshold)
-      .sort((a, b) => b.finalScore - a.finalScore)
+      .filter((memory: any) => memory.finalScore >= threshold)
+      .sort((a: any, b: any) => b.finalScore - a.finalScore)
       .slice(0, args.limit || 10);
     
     console.log(`🎯 Enhanced search results: ${filteredResults.length} memories above threshold ${threshold}`);
@@ -1071,8 +1071,8 @@ export const enhancedMemorySearchForDevelopment = action({
     console.log(`🔍 Enhanced Memory Search (DEV): "${args.query}" for user ${args.developmentUserId}`);
     
     // PROFILE-FIRST RESOLUTION: Check if query can be answered from profile
-    const queryLower = args.query.toLowerCase();
-    const profileAnswer = await checkProfileForAnswer(ctx, args.developmentUserId, queryLower);
+    const queryLowerProfile = args.query.toLowerCase();
+    const profileAnswer = await checkProfileForAnswer(ctx, args.developmentUserId, queryLowerProfile);
     
     if (profileAnswer) {
       console.log(`👤 PROFILE-FIRST: Found direct answer in user profile`);
@@ -1118,7 +1118,7 @@ export const enhancedMemorySearchForDevelopment = action({
     
     // Score each memory using multiple dimensions
     const scoredMemories = await Promise.all(
-      allMemories.map(async (memory) => {
+      allMemories.map(async (memory: any) => {
         const scores = {
           semantic: 0,
           entity: 0,
@@ -1241,8 +1241,8 @@ export const enhancedMemorySearchForDevelopment = action({
     // Filter by threshold and sort by final score
     const threshold = args.threshold || 0.1; // Lower threshold to be more inclusive
     const filteredResults = scoredMemories
-      .filter(memory => memory.finalScore >= threshold)
-      .sort((a, b) => b.finalScore - a.finalScore)
+      .filter((memory: any) => memory.finalScore >= threshold)
+      .sort((a: any, b: any) => b.finalScore - a.finalScore)
       .slice(0, args.limit || 10);
     
     console.log(`🎯 Enhanced search results: ${filteredResults.length} memories above threshold ${threshold}`);

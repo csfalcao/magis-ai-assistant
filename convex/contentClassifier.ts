@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
+import { api } from "./_generated/api";
 import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 
@@ -217,7 +218,7 @@ export const batchClassifyContent = action({
     
     const results = await Promise.all(
       args.contents.map(item => 
-        ctx.runAction("contentClassifier:classifyContent", {
+        ctx.runAction(api.contentClassifier.classifyContent, {
           content: item.content,
           context: item.context,
         })

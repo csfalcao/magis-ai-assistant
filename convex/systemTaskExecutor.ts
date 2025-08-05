@@ -45,7 +45,7 @@ export const executeSystemTask = action({
   args: {
     taskId: v.id('system_tasks'),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ success: boolean; result?: any; error?: string }> => {
     const task = await ctx.runQuery(api.systemTaskExecutor.getSystemTask, {
       taskId: args.taskId,
     });
@@ -56,7 +56,7 @@ export const executeSystemTask = action({
 
     if (task.status !== 'pending') {
       console.log(`Task ${args.taskId} already ${task.status}`);
-      return { success: false, reason: `Task already ${task.status}` };
+      return { success: false, error: `Task already ${task.status}` };
     }
 
     try {
@@ -284,7 +284,7 @@ export const getSystemTask = query({
 // Scheduled function to process pending tasks
 export const processScheduledTasks = action({
   args: {},
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<Array<{ taskId: any; success: boolean; result?: any; error?: string }>> => {
     console.log('🔄 Processing scheduled system tasks...');
     
     // This would typically be called by a cron job or scheduled function
