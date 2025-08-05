@@ -501,8 +501,35 @@ async function createMemoryFromMessage(content: string, context: string, convers
     // STEP 2: Process based on classification
     if (classificationResult.classification === "PROFILE") {
       console.log('👤 THREE-TIER: PROFILE content detected - updating user profile');
-      // TODO: Extract profile data and update user profile
-      // For now, also create a memory for conversation context
+      
+      // Extract structured profile data
+      const profileExtraction = await convex.action(api.profileExtractor.extractProfileData, {
+        content: content,
+        classification: classificationResult.classification,
+        context: context,
+        subType: classificationResult.subType,
+      });
+
+      if (profileExtraction.success && profileExtraction.profileUpdate) {
+        console.log('✅ THREE-TIER: Profile data extracted:', profileExtraction.extractedFields);
+        
+        // Apply profile update
+        const updateResult = await convex.mutation(api.profileExtractor.applyProfileUpdate, {
+          userId: "jh78atbrf5hkhz5bq8pqvzjyf57k3f2a" as any, // Default user for development
+          profileUpdate: profileExtraction.profileUpdate,
+          extractedFields: profileExtraction.extractedFields,
+        });
+
+        // Generate proactive tasks
+        await convex.mutation(api.profileExtractor.generateProfileTasks, {
+          userId: "jh78atbrf5hkhz5bq8pqvzjyf57k3f2a" as any,
+          profileUpdate: profileExtraction.profileUpdate,
+          updateType: classificationResult.subType || 'general',
+        });
+
+        console.log('🎯 THREE-TIER: Profile updated and tasks generated');
+      }
+      // Also create a memory for conversation context
     } else if (classificationResult.classification === "EXPERIENCE") {
       console.log('📅 THREE-TIER: EXPERIENCE content detected - creating trackable event');
       // TODO: Create experience with proactive follow-ups
