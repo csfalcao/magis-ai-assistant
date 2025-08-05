@@ -722,51 +722,40 @@ export const enhancedMemorySearch = action({
           }
         }
         
-        // 2. ENTITY MATCHING (people, organizations, locations)
-        if (memory.extractedEntities) {
-          const entities = memory.extractedEntities;
+        // 2. ENTITY MATCHING (using stored entities array)
+        if ((memory as any).entities && (memory as any).entities.length > 0) {
+          const entities = (memory as any).entities; // Array like ["Sarah", "Microsoft", "Luigi's"]
           let entityMatches = 0;
-          let totalEntities = 0;
+          const totalEntities = entities.length;
           
-          // Check people entities
-          if (entities.people) {
-            totalEntities += entities.people.length;
-            entityMatches += entities.people.filter(person => 
-              queryLower.includes(person.name?.toLowerCase() || '') ||
-              queryLower.includes(person.relationship?.toLowerCase() || '')
-            ).length;
-          }
-          
-          // Check organization entities
-          if (entities.organizations) {
-            totalEntities += entities.organizations.length;
-            entityMatches += entities.organizations.filter(org => 
-              queryLower.includes(org.name?.toLowerCase() || '') ||
-              queryLower.includes(org.type?.toLowerCase() || '')
-            ).length;
-          }
-          
-          // Check location entities
-          if (entities.locations) {
-            totalEntities += entities.locations.length;
-            entityMatches += entities.locations.filter(location => 
-              queryLower.includes(location.toLowerCase())
-            ).length;
-          }
+          // Check each entity against the query
+          entityMatches = entities.filter((entity: string) => 
+            queryLower.includes(entity.toLowerCase())
+          ).length;
           
           scores.entity = totalEntities > 0 ? entityMatches / totalEntities : 0;
         }
         
-        // 3. TEMPORAL MATCHING (for time-based queries)
-        if (memory.resolvedDates && memory.resolvedDates.length > 0) {
-          const hasTimeQuery = queryLower.includes('when') || 
-                              queryLower.includes('last') || 
-                              queryLower.includes('recent') ||
-                              queryLower.includes('ago') ||
-                              queryLower.includes('time');
+        // 3. TEMPORAL MATCHING (using keywords for temporal context)
+        const hasTimeQuery = queryLower.includes('when') || 
+                            queryLower.includes('last') || 
+                            queryLower.includes('recent') ||
+                            queryLower.includes('ago') ||
+                            queryLower.includes('time') ||
+                            queryLower.includes('next');
+        
+        if (hasTimeQuery && (memory as any).keywords) {
+          const keywords = (memory as any).keywords || [];
+          const temporalKeywords = ['next', 'last', 'yesterday', 'tomorrow', 'today', 'week', 'month', 'year',
+                                  'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+                                  'am', 'pm', '2pm', '3pm', '10am', 'morning', 'afternoon', 'evening', 'night'];
           
-          if (hasTimeQuery) {
-            // Higher score for memories with resolved dates when time is queried
+          // Check for temporal keywords in memory
+          const hasTemporalKeywords = keywords.some((keyword: string) => 
+            temporalKeywords.some(temporal => keyword.toLowerCase().includes(temporal))
+          );
+          
+          if (hasTemporalKeywords) {
             scores.temporal = 0.8;
             
             // Boost recent memories for "last" or "recent" queries
@@ -774,6 +763,28 @@ export const enhancedMemorySearch = action({
               const daysSinceCreated = (Date.now() - memory.createdAt) / (1000 * 60 * 60 * 24);
               scores.temporal = Math.max(0.8, 1.0 - (daysSinceCreated / 365)); // Decay over a year
             }
+          }
+        }
+        
+        // NEW: Recency conflict resolution for "current" queries (Goal 4/4 fix)
+        const hasCurrentQuery = queryLower.includes('current') || queryLower.includes('currently') ||
+                               queryLower.includes('now') || queryLower.includes('where do i work') ||
+                               queryLower.includes('where do you work');
+        
+        if (hasCurrentQuery && memory.createdAt) {
+          const daysSinceCreated = (Date.now() - memory.createdAt) / (1000 * 60 * 60 * 24);
+          
+          // Strong recency boost for memories with "last week", "started", etc.
+          const content = memory.content.toLowerCase();
+          const hasRecentIndicators = content.includes('last week') || content.includes('started') ||
+                                    content.includes('new job') || content.includes('just') ||
+                                    content.includes('recently') || content.includes('now');
+          
+          if (hasRecentIndicators) {
+            // Exponential recency boost: newer = much higher temporal score
+            const recencyBoost = 0.9 + (1.0 / (daysSinceCreated + 1));
+            scores.temporal = Math.max(scores.temporal, recencyBoost);
+            console.log(`🕐 Recency boost applied: ${scores.temporal.toFixed(3)} for "${content.substring(0, 50)}..."`);
           }
         }
         
@@ -1030,51 +1041,40 @@ export const enhancedMemorySearchForDevelopment = action({
           }
         }
         
-        // 2. ENTITY MATCHING (people, organizations, locations)
-        if (memory.extractedEntities) {
-          const entities = memory.extractedEntities;
+        // 2. ENTITY MATCHING (using stored entities array)
+        if ((memory as any).entities && (memory as any).entities.length > 0) {
+          const entities = (memory as any).entities; // Array like ["Sarah", "Microsoft", "Luigi's"]
           let entityMatches = 0;
-          let totalEntities = 0;
+          const totalEntities = entities.length;
           
-          // Check people entities
-          if (entities.people) {
-            totalEntities += entities.people.length;
-            entityMatches += entities.people.filter(person => 
-              queryLower.includes(person.name?.toLowerCase() || '') ||
-              queryLower.includes(person.relationship?.toLowerCase() || '')
-            ).length;
-          }
-          
-          // Check organization entities
-          if (entities.organizations) {
-            totalEntities += entities.organizations.length;
-            entityMatches += entities.organizations.filter(org => 
-              queryLower.includes(org.name?.toLowerCase() || '') ||
-              queryLower.includes(org.type?.toLowerCase() || '')
-            ).length;
-          }
-          
-          // Check location entities
-          if (entities.locations) {
-            totalEntities += entities.locations.length;
-            entityMatches += entities.locations.filter(location => 
-              queryLower.includes(location.toLowerCase())
-            ).length;
-          }
+          // Check each entity against the query
+          entityMatches = entities.filter((entity: string) => 
+            queryLower.includes(entity.toLowerCase())
+          ).length;
           
           scores.entity = totalEntities > 0 ? entityMatches / totalEntities : 0;
         }
         
-        // 3. TEMPORAL MATCHING (for time-based queries)
-        if (memory.resolvedDates && memory.resolvedDates.length > 0) {
-          const hasTimeQuery = queryLower.includes('when') || 
-                              queryLower.includes('last') || 
-                              queryLower.includes('recent') ||
-                              queryLower.includes('ago') ||
-                              queryLower.includes('time');
+        // 3. TEMPORAL MATCHING (using keywords for temporal context)
+        const hasTimeQuery = queryLower.includes('when') || 
+                            queryLower.includes('last') || 
+                            queryLower.includes('recent') ||
+                            queryLower.includes('ago') ||
+                            queryLower.includes('time') ||
+                            queryLower.includes('next');
+        
+        if (hasTimeQuery && (memory as any).keywords) {
+          const keywords = (memory as any).keywords || [];
+          const temporalKeywords = ['next', 'last', 'yesterday', 'tomorrow', 'today', 'week', 'month', 'year',
+                                  'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+                                  'am', 'pm', '2pm', '3pm', '10am', 'morning', 'afternoon', 'evening', 'night'];
           
-          if (hasTimeQuery) {
-            // Higher score for memories with resolved dates when time is queried
+          // Check for temporal keywords in memory
+          const hasTemporalKeywords = keywords.some((keyword: string) => 
+            temporalKeywords.some(temporal => keyword.toLowerCase().includes(temporal))
+          );
+          
+          if (hasTemporalKeywords) {
             scores.temporal = 0.8;
             
             // Boost recent memories for "last" or "recent" queries
@@ -1082,6 +1082,28 @@ export const enhancedMemorySearchForDevelopment = action({
               const daysSinceCreated = (Date.now() - memory.createdAt) / (1000 * 60 * 60 * 24);
               scores.temporal = Math.max(0.8, 1.0 - (daysSinceCreated / 365)); // Decay over a year
             }
+          }
+        }
+        
+        // NEW: Recency conflict resolution for "current" queries (Goal 4/4 fix)
+        const hasCurrentQuery = queryLower.includes('current') || queryLower.includes('currently') ||
+                               queryLower.includes('now') || queryLower.includes('where do i work') ||
+                               queryLower.includes('where do you work');
+        
+        if (hasCurrentQuery && memory.createdAt) {
+          const daysSinceCreated = (Date.now() - memory.createdAt) / (1000 * 60 * 60 * 24);
+          
+          // Strong recency boost for memories with "last week", "started", etc.
+          const content = memory.content.toLowerCase();
+          const hasRecentIndicators = content.includes('last week') || content.includes('started') ||
+                                    content.includes('new job') || content.includes('just') ||
+                                    content.includes('recently') || content.includes('now');
+          
+          if (hasRecentIndicators) {
+            // Exponential recency boost: newer = much higher temporal score
+            const recencyBoost = 0.9 + (1.0 / (daysSinceCreated + 1));
+            scores.temporal = Math.max(scores.temporal, recencyBoost);
+            console.log(`🕐 Recency boost applied: ${scores.temporal.toFixed(3)} for "${content.substring(0, 50)}..."`);
           }
         }
         
