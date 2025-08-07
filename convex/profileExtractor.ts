@@ -144,7 +144,12 @@ Include ONLY fields that are explicitly mentioned. Return minimal JSON with:
 
       // Parse the response
       try {
-        const extracted = JSON.parse(result.text);
+        // Handle potential markdown-wrapped JSON
+        let jsonText = result.text.trim();
+        if (jsonText.startsWith('```')) {
+          jsonText = jsonText.replace(/```json\s*/, '').replace(/```\s*$/, '').trim();
+        }
+        const extracted = JSON.parse(jsonText);
         
         console.log(`✅ PROFILE EXTRACTOR: Extracted ${extracted.extractedFields.length} fields`);
         console.log(`   Fields: ${extracted.extractedFields.join(', ')}`);
