@@ -27,7 +27,15 @@ PROFILE (WHO I AM - Biographical/Current State):
 - "Dr. Smith is my dentist" → PROFILE (service_providers)
 - "I'm vegetarian" → PROFILE (preferences)
 - "Just started working at Microsoft last week" → PROFILE (work_info)
+- "Started working at Google last week" → PROFILE (work_info)
+- "I joined Amazon recently" → PROFILE (work_info)
+- "My new job at Tesla is amazing" → PROFILE (work_info)
+- "I'm now working at Apple" → PROFILE (work_info)
+- "Got hired at Meta" → PROFILE (work_info)
+- "I'm a software engineer at Microsoft" → PROFILE (work_info)
 - "My wife's name is Sarah" → PROFILE (family_info)
+- "Started a new position at IBM" → PROFILE (work_info)
+- "I'm the new CTO at a startup" → PROFILE (work_info)
 
 MEMORY (WHAT I DID - Past Events/Experiences):
 - "Had dinner at Luigi's last night" → MEMORY
@@ -36,6 +44,8 @@ MEMORY (WHAT I DID - Past Events/Experiences):
 - "Visited the dentist last month" → MEMORY
 - "My trip to Paris was amazing" → MEMORY
 - "Sarah and I discussed the wedding plans" → MEMORY
+- "Interviewed at Google last week" → MEMORY (past event, not current job)
+- "Quit my job last month" → MEMORY (past event, not current state)
 
 EXPERIENCE (WHAT I'LL DO - Future Events/Plans):
 - "Meeting with Sarah next Friday at 2pm" → EXPERIENCE
@@ -44,6 +54,8 @@ EXPERIENCE (WHAT I'LL DO - Future Events/Plans):
 - "Going to Miami next week" → EXPERIENCE
 - "Have to finish the report by Monday" → EXPERIENCE
 - "Dinner reservation at 7pm tonight" → EXPERIENCE
+- "Starting my new job next Monday" → EXPERIENCE (future event)
+- "Will interview at Amazon tomorrow" → EXPERIENCE (future event)
 `;
 
 /**
@@ -69,16 +81,20 @@ Classify the following user content into one of three categories:
    - Preferences, habits, service providers
    - Any "I am", "I work at", "I live in" statements
    - Updates to personal information
+   - IMPORTANT: Job updates like "started working", "new job", "joined company" are PROFILE
+   - Even if mentioned with time reference (last week, recently), job changes update current state
 
 2. MEMORY - Past events, experiences, things that happened
    - Past activities, meetings, dinners
    - Previous experiences, trips, events
-   - Anything with past tense indicators
+   - Things that happened but don't change current state
+   - NOT job changes or moves - those are PROFILE updates
 
 3. EXPERIENCE - Future events, plans, upcoming activities
    - Scheduled meetings, appointments
    - Future plans, deadlines, reminders
    - Anything with future time indicators
+   - Starting a job "next week" is EXPERIENCE until it happens
 
 Context: ${context}
 Content: "${content}"
@@ -92,7 +108,7 @@ Analyze the content and provide:
 3. Reasoning: Brief explanation of why
 4. SubType (if PROFILE): work_info, personal_info, family_info, preferences, or service_providers
 
-Respond in JSON format:
+Respond with valid JSON only (no markdown formatting):
 {
   "classification": "PROFILE|MEMORY|EXPERIENCE",
   "confidence": 0.95,
@@ -108,7 +124,12 @@ Respond in JSON format:
 
       // Parse the JSON response
       try {
-        const classification = JSON.parse(result.text);
+        // Handle potential markdown-wrapped JSON
+        let jsonText = result.text.trim();
+        if (jsonText.startsWith('```')) {
+          jsonText = jsonText.replace(/```json\s*/, '').replace(/```\s*$/, '').trim();
+        }
+        const classification = JSON.parse(jsonText);
         
         // Validate the classification
         if (!["PROFILE", "MEMORY", "EXPERIENCE"].includes(classification.classification)) {
@@ -152,7 +173,9 @@ function fallbackClassification(content: string): ClassificationResult {
   const profileIndicators = [
     'i work at', 'i am', 'i\'m', 'my name is', 'i live', 'my birthday',
     'my wife', 'my husband', 'my doctor', 'my dentist', 'i prefer',
-    'started working at', 'new job', 'just joined'
+    'started working at', 'new job', 'just joined', 'joined', 'working at',
+    'got hired', 'new position', 'my job', 'i\'m now', 'recently joined',
+    'started at', 'work for', 'employed at', 'position at'
   ];
   
   // Check for EXPERIENCE indicators (future)
